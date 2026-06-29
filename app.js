@@ -5,7 +5,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 5000;
 const DB_PATH = path.join(__dirname, 'sr_finance.db');
 
 app.use(express.json());
