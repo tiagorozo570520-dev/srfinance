@@ -1288,6 +1288,19 @@
                         </div>
                     </div>
 
+                    <div class="crystal-card nav-section" id="section-trend">
+                        <div class="section-title" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                            <span><i class="fa-solid fa-chart-line" style="color: var(--cyan);"></i> Evolución Mensual</span>
+                            <div style="display: flex; gap: 6px;">
+                                <button id="trend-btn-cop" onclick="setTrendCurrency('COP')" style="background: rgba(45,140,255,0.2); color: var(--electric-blue); border: 1px solid rgba(45,140,255,0.3); border-radius: 8px; padding: 4px 10px; font-size: 0.75rem; font-weight: 700; cursor: pointer; font-family: inherit;">COP</button>
+                                <button id="trend-btn-usd" onclick="setTrendCurrency('USD')" style="background: rgba(255,255,255,0.05); color: var(--text-muted); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 4px 10px; font-size: 0.75rem; font-weight: 700; cursor: pointer; font-family: inherit;">USD</button>
+                            </div>
+                        </div>
+                        <div style="position: relative; height: 220px; margin-top: 1rem;">
+                            <canvas id="chart-monthly-trend"></canvas>
+                        </div>
+                    </div>
+
                     <div class="crystal-card nav-section" id="section-history">
                         <div class="section-title">
                             <i class="fa-solid fa-list-check" style="color: var(--cyan);"></i> Historial de Ledger Reciente
@@ -1707,6 +1720,149 @@
             });
         }
 
+        let monthlyMovementsCache = [];
+        let activeTrendCurrency = 'COP';
+        let monthlyChartInstance = null;
+
+        function setTrendCurrency(currency) {
+            activeTrendCurrency = currency;
+            document.getElementById('trend-btn-cop').style.background = currency === 'COP' ? 'rgba(45,140,255,0.2)' : 'rgba(255,255,255,0.05)';
+            document.getElementById('trend-btn-cop').style.color = currency === 'COP' ? 'var(--electric-blue)' : 'var(--text-muted)';
+            document.getElementById('trend-btn-usd').style.background = currency === 'USD' ? 'rgba(0,212,255,0.2)' : 'rgba(255,255,255,0.05)';
+            document.getElementById('trend-btn-usd').style.color = currency === 'USD' ? 'var(--cyan)' : 'var(--text-muted)';
+            updateMonthlyChart(monthlyMovementsCache);
+        }
+
+        function updateMonthlyChart(movements) {
+            monthlyMovementsCache = movements;
+            const cur = activeTrendCurrency;
+
+            const byMonth = {};
+            movements.forEach(tx => {
+                const date = tx.fecha_registro || '';
+                if (!date) return;
+                const month = date.substring(0, 7);
+                if (!byMonth[month]) byMonth[month] = { income: 0, expense: 0 };
+                const amount = parseFloat(tx.monto) || 0;
+                const divisa = (tx.divisa || '').toUpperCase();
+                if (divisa !== cur) return;
+                const isIncome = tx.tipo && tx.tipo.toLowerCase() === 'ingreso';
+                if (isIncome) byMonth[month].income += amount;
+                else byMonth[month].expense += amount;
+            });
+
+            const sortedMonths = Object.keys(byMonth).sort();
+            const labels = sortedMonths.map(m => {
+                const [y, mo] = m.split('-');
+                return new Date(+y, +mo - 1, 1).toLocaleString('es', { month: 'short', year: '2-digit' });
+            });
+            const incomeData = sortedMonths.map(m => byMonth[m].income);
+            const expenseData = sortedMonths.map(m => byMonth[m].expense);
+
+            if (monthlyChartInstance) {
+                monthlyChartInstance.destroy();
+                monthlyChartInstance = null;
+            }
+
+            const container = document.getElementById('chart-monthly-trend');
+            if (!container) return;
+
+            const isNoData = sortedMonths.length === 0;
+            if (isNoData) {
+                const ctx = container.getContext('2d');
+                ctx.clearRect(0, 0, container.width, container.height);
+                ctx.fillStyle = 'rgba(255,255,255,0.1)';
+                ctx.font = '14px Plus Jakarta Sans';
+                ctx.textAlign = 'center';
+                ctx.fillText('Sin movimientos aún', container.width / 2, container.height / 2);
+                return;
+            }
+
+            monthlyChartInstance = new Chart(container, {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [
+                        {
+                            label: 'Ingresos',
+                            data: incomeData,
+                            borderColor: '#00D4FF',
+                            backgroundColor: 'rgba(0,212,255,0.08)',
+                            pointBackgroundColor: '#00D4FF',
+                            pointRadius: 4,
+                            pointHoverRadius: 6,
+                            borderWidth: 2,
+                            tension: 0.4,
+                            fill: true
+                        },
+                        {
+                            label: 'Gastos',
+                            data: expenseData,
+                            borderColor: '#FF4B4B',
+                            backgroundColor: 'rgba(255,75,75,0.06)',
+                            pointBackgroundColor: '#FF4B4B',
+                            pointRadius: 4,
+                            pointHoverRadius: 6,
+                            borderWidth: 2,
+                            tension: 0.4,
+                            fill: true
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: {
+                                color: '#7E7E86',
+                                font: { family: "'Plus Jakarta Sans', sans-serif", size: 11 },
+                                boxWidth: 10,
+                                boxHeight: 10,
+                                usePointStyle: true,
+                                padding: 16
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: '#121217',
+                            titleColor: '#FFFFFF',
+                            bodyColor: '#AAAAAA',
+                            borderColor: 'rgba(255,255,255,0.08)',
+                            borderWidth: 1,
+                            padding: 12,
+                            callbacks: {
+                                label: ctx => {
+                                    const val = ctx.raw;
+                                    return cur === 'COP'
+                                        ? ` $${val.toLocaleString()} COP`
+                                        : ` $${val.toLocaleString(undefined, {minimumFractionDigits:2,maximumFractionDigits:2})} USD`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: 'rgba(255,255,255,0.04)' },
+                            ticks: { color: '#7E7E86', font: { family: "'Plus Jakarta Sans', sans-serif", size: 10 } }
+                        },
+                        y: {
+                            grid: { color: 'rgba(255,255,255,0.04)' },
+                            ticks: {
+                                color: '#7E7E86',
+                                font: { family: "'Plus Jakarta Sans', sans-serif", size: 10 },
+                                callback: val => cur === 'COP'
+                                    ? `$${(val/1000).toFixed(0)}k`
+                                    : `$${val.toFixed(0)}`
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
         async function loadDashboardData() {
             if (!currentUser) return;
             try {
@@ -1797,6 +1953,7 @@
 
                 updateChartInstance('COP', copExpenses);
                 updateChartInstance('USD', usdExpenses);
+                updateMonthlyChart(movements);
 
                 updateAISuggestions();
                 await loadGoals();
