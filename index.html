@@ -720,6 +720,236 @@
             grid-template-columns: 1fr;
         }
 
+        /* ============================================
+           FUTURISTIC UPGRADE — CSS ONLY, NON-BREAKING
+           ============================================ */
+
+        /* Subtle dot-grid on the body */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image:
+                radial-gradient(circle, rgba(45,140,255,0.07) 1px, transparent 1px);
+            background-size: 36px 36px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* Stronger ambient glows */
+        .ambient-glow-1 {
+            background: radial-gradient(circle, rgba(45, 140, 255, 0.14) 0%, transparent 70%);
+            animation: pulseGlow1 8s ease-in-out infinite alternate;
+        }
+        .ambient-glow-2 {
+            background: radial-gradient(circle, rgba(138, 43, 226, 0.12) 0%, transparent 70%);
+            animation: pulseGlow2 10s ease-in-out infinite alternate;
+        }
+        @keyframes pulseGlow1 {
+            0%   { transform: scale(1) translate(0, 0); opacity: 0.7; }
+            100% { transform: scale(1.3) translate(4%, -4%); opacity: 1; }
+        }
+        @keyframes pulseGlow2 {
+            0%   { transform: scale(1) translate(0, 0); opacity: 0.6; }
+            100% { transform: scale(1.2) translate(-5%, 5%); opacity: 1; }
+        }
+
+        /* Crystal card — neon border shimmer on hover */
+        .crystal-card {
+            position: relative;
+            overflow: hidden;
+        }
+        .crystal-card::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            background: linear-gradient(135deg,
+                rgba(45,140,255,0.06) 0%,
+                rgba(138,43,226,0.04) 50%,
+                rgba(0,212,255,0.05) 100%);
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.4s ease;
+        }
+        .crystal-card:hover::after { opacity: 1; }
+        .crystal-card:hover {
+            border-color: rgba(45, 140, 255, 0.35);
+            box-shadow:
+                0 30px 60px rgba(0,0,0,0.5),
+                0 0 0 1px rgba(45,140,255,0.12),
+                0 0 30px rgba(45,140,255,0.08);
+        }
+
+        /* Hero card — animated neon border */
+        .hero-card {
+            border-color: rgba(45, 140, 255, 0.25);
+            box-shadow:
+                0 20px 40px rgba(0,0,0,0.4),
+                0 0 40px rgba(45,140,255,0.06),
+                inset 0 1px 0 rgba(255,255,255,0.05);
+        }
+        .hero-card::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            background: linear-gradient(90deg,
+                transparent 0%,
+                rgba(45,140,255,0.06) 30%,
+                rgba(0,212,255,0.08) 60%,
+                transparent 100%);
+            background-size: 200% 100%;
+            animation: heroShimmer 6s linear infinite;
+            pointer-events: none;
+        }
+        @keyframes heroShimmer {
+            0%   { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        /* Balance amount — sharper neon glow */
+        .balance-amount.cop-color {
+            text-shadow:
+                0 0 20px rgba(255,255,255,0.15),
+                0 0 40px rgba(45,140,255,0.1);
+        }
+        .balance-amount.usd-color {
+            text-shadow:
+                0 0 20px rgba(0,212,255,0.35),
+                0 0 50px rgba(0,212,255,0.15);
+        }
+        .net-worth-amount {
+            text-shadow:
+                0 0 30px rgba(255,255,255,0.15),
+                0 0 60px rgba(45,140,255,0.1);
+        }
+
+        /* Progress bar — animated shimmer glow */
+        .progress-bar-fill {
+            position: relative;
+            overflow: hidden;
+            background: linear-gradient(90deg, var(--cyan), var(--electric-blue), var(--purple-accent));
+            background-size: 200% 100%;
+            animation: barShimmer 3s linear infinite;
+            box-shadow: 0 0 8px rgba(0,212,255,0.5);
+        }
+        @keyframes barShimmer {
+            0%   { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        /* Section titles — neon left accent bar */
+        .section-title {
+            position: relative;
+            padding-left: 14px;
+        }
+        .section-title::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 3px;
+            height: 70%;
+            border-radius: 4px;
+            background: linear-gradient(180deg, var(--cyan), var(--purple-accent));
+            box-shadow: 0 0 8px var(--cyan);
+        }
+
+        /* Stat icons — neon ring */
+        .stat-icon {
+            box-shadow: 0 0 12px rgba(0,212,255,0.15);
+            border: 1px solid rgba(255,255,255,0.06);
+        }
+        .icon-income { box-shadow: 0 0 14px rgba(0,212,255,0.2); }
+        .icon-expense { box-shadow: 0 0 14px rgba(255,75,75,0.2); }
+        .icon-balance { box-shadow: 0 0 14px rgba(45,140,255,0.2); }
+        .icon-savings { box-shadow: 0 0 14px rgba(138,43,226,0.25); }
+
+        /* Submit button — stronger neon pulse */
+        .btn-submit-premium {
+            background: linear-gradient(135deg, #2D8CFF 0%, #8A2BE2 100%);
+            box-shadow:
+                0 10px 24px rgba(45,140,255,0.25),
+                0 0 0 1px rgba(45,140,255,0.15);
+        }
+        .btn-submit-premium:hover {
+            box-shadow:
+                0 16px 32px rgba(45,140,255,0.4),
+                0 0 20px rgba(138,43,226,0.2),
+                0 0 0 1px rgba(45,140,255,0.3);
+        }
+
+        /* Input focus — neon ring */
+        .input-premium:focus {
+            border-color: rgba(45,140,255,0.7);
+            box-shadow:
+                0 0 0 3px rgba(45,140,255,0.1),
+                0 0 20px rgba(45,140,255,0.15);
+        }
+
+        /* Bottom nav — neon border + glow */
+        .bottom-nav {
+            border-color: rgba(45,140,255,0.18);
+            box-shadow:
+                0 20px 60px rgba(0,0,0,0.6),
+                0 0 0 1px rgba(45,140,255,0.08),
+                0 0 30px rgba(45,140,255,0.06);
+        }
+        .nav-item.active {
+            text-shadow:
+                0 0 12px var(--cyan),
+                0 0 24px rgba(0,212,255,0.5);
+        }
+
+        /* Transaction items — hover neon border */
+        .tx-item {
+            transition: border-color 0.25s ease, box-shadow 0.25s ease, background 0.25s ease;
+        }
+        .tx-item:hover {
+            border-color: rgba(45,140,255,0.2);
+            background: rgba(45,140,255,0.04);
+            box-shadow: 0 0 16px rgba(45,140,255,0.06);
+        }
+
+        /* Goal rows — hover neon ring */
+        .goal-row {
+            transition: border-color 0.25s ease, box-shadow 0.25s ease;
+        }
+        .goal-row:hover {
+            border-color: rgba(138,43,226,0.3) !important;
+            box-shadow: 0 0 16px rgba(138,43,226,0.08);
+        }
+
+        /* AI orb — stronger glow */
+        .ai-orb {
+            box-shadow: 0 0 40px var(--cyan), 0 0 80px rgba(138,43,226,0.4);
+        }
+
+        /* Auth card logo glow */
+        .logo-img {
+            box-shadow:
+                0 4px 24px rgba(0,0,0,0.5),
+                0 0 20px rgba(45,140,255,0.15);
+        }
+
+        /* Segment active buttons — neon tint */
+        .segment-btn.active.income-active {
+            box-shadow: 0 0 12px rgba(0,212,255,0.2);
+        }
+        .segment-btn.active.expense-active {
+            box-shadow: 0 0 12px rgba(255,75,75,0.2);
+        }
+
+        /* Custom scrollbar — neon accent */
+        ::-webkit-scrollbar-thumb {
+            background: linear-gradient(180deg, rgba(45,140,255,0.3), rgba(138,43,226,0.3));
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(180deg, rgba(45,140,255,0.5), rgba(138,43,226,0.5));
+        }
+
         /* Modals and forms for savings goals */
         .modal-backdrop {
             position: fixed;
