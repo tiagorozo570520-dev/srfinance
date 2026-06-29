@@ -1332,10 +1332,14 @@
                             <button class="btn-goal-action" data-id="${goal.id_meta}" data-name="${goal.nombre_meta}" data-tipo="retiro" style="flex:1; background: rgba(255,75,75,0.1); color: #FF4B4B; border: 1px solid rgba(255,75,75,0.2);">
                                 <i class="fa-solid fa-arrow-up"></i> Retirar
                             </button>
+                            <button class="btn-delete-goal" data-id="${goal.id_meta}" data-name="${goal.nombre_meta}" title="Eliminar meta" style="background: rgba(255,255,255,0.05); color: var(--text-muted); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 6px 10px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s ease;">
+                                <i class="fa-regular fa-trash-can"></i>
+                            </button>
                         </div>`;
                     goalEl.querySelectorAll('.btn-goal-action').forEach(btn => {
                         btn.addEventListener('click', () => openGoalMovementModal(btn.dataset.id, btn.dataset.name, btn.dataset.tipo));
                     });
+                    goalEl.querySelector('.btn-delete-goal').addEventListener('click', () => deleteGoal(goal.id_meta, goal.nombre_meta));
                     goalsContainer.appendChild(goalEl);
                 });
             } catch (err) {
@@ -1615,6 +1619,26 @@
             } catch (error) {
                 console.error("Error deleting tx:", error);
                 alert("Error al conectar con el servidor local para eliminar el movimiento.");
+            }
+        }
+
+        async function deleteGoal(id_meta, nombre_meta) {
+            if (!currentUser) return;
+            if (!confirm(`¿Eliminar la meta "${nombre_meta}"? Esta acción no se puede deshacer.`)) return;
+
+            try {
+                const response = await fetch(`/api/metas/${id_meta}`, {
+                    method: 'DELETE',
+                    headers: { 'x-user-id': currentUser.id_usuario }
+                });
+                if (response.ok) {
+                    await loadDashboardData();
+                } else {
+                    const err = await response.json();
+                    alert(err.error || 'No se pudo eliminar la meta.');
+                }
+            } catch (e) {
+                alert('Error al conectar con el servidor.');
             }
         }
 
