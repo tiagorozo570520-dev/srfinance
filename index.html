@@ -1604,6 +1604,9 @@
                             <button class="btn-goal-action" data-id="${goal.id_meta}" data-name="${goal.nombre_meta}" data-tipo="retiro" style="flex:1; background: rgba(255,75,75,0.1); color: #FF4B4B; border: 1px solid rgba(255,75,75,0.2);">
                                 <i class="fa-solid fa-arrow-up"></i> Retirar
                             </button>
+                            <button class="btn-edit-goal" data-id="${goal.id_meta}" title="Editar meta" style="background: rgba(45,140,255,0.08); color: var(--electric-blue); border: 1px solid rgba(45,140,255,0.15); border-radius: 10px; padding: 6px 10px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s ease;">
+                                <i class="fa-regular fa-pen-to-square"></i>
+                            </button>
                             <button class="btn-delete-goal" data-id="${goal.id_meta}" data-name="${goal.nombre_meta}" title="Eliminar meta" style="background: rgba(255,255,255,0.05); color: var(--text-muted); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 6px 10px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s ease;">
                                 <i class="fa-regular fa-trash-can"></i>
                             </button>
@@ -1611,6 +1614,7 @@
                     goalEl.querySelectorAll('.btn-goal-action').forEach(btn => {
                         btn.addEventListener('click', () => openGoalMovementModal(btn.dataset.id, btn.dataset.name, btn.dataset.tipo));
                     });
+                    goalEl.querySelector('.btn-edit-goal').addEventListener('click', () => openEditGoalModal(goal));
                     goalEl.querySelector('.btn-delete-goal').addEventListener('click', () => deleteGoal(goal.id_meta, goal.nombre_meta));
                     goalsContainer.appendChild(goalEl);
                 });
@@ -2036,6 +2040,99 @@
                 console.error("Error deleting tx:", error);
                 alert("Error al conectar con el servidor local para eliminar el movimiento.");
             }
+        }
+
+        function openEditGoalModal(goal) {
+            if (!currentUser) return;
+
+            const backdrop = document.createElement('div');
+            backdrop.className = 'modal-backdrop';
+            backdrop.id = 'edit-goal-modal-backdrop';
+
+            backdrop.innerHTML = `
+                <div class="crystal-card modal-content" style="width:100%;max-width:420px;padding:2rem;display:flex;flex-direction:column;gap:1.2rem;">
+                    <h3 style="font-size:1.1rem;font-weight:700;margin:0;display:flex;align-items:center;gap:0.5rem;">
+                        <i class="fa-regular fa-pen-to-square" style="color:var(--electric-blue);"></i> Editar Meta
+                    </h3>
+                    <div style="display:flex;flex-direction:column;gap:0.8rem;">
+                        <div>
+                            <label style="font-size:0.8rem;color:var(--text-muted);display:block;margin-bottom:4px;">Nombre</label>
+                            <input id="edit-goal-name" type="text" value="${goal.nombre_meta || ''}" style="width:100%;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:10px 14px;color:var(--text-primary);font-size:0.9rem;font-family:inherit;box-sizing:border-box;" />
+                        </div>
+                        <div>
+                            <label style="font-size:0.8rem;color:var(--text-muted);display:block;margin-bottom:4px;">Monto objetivo</label>
+                            <input id="edit-goal-amount" type="number" min="1" step="any" value="${goal.monto_objetivo || ''}" style="width:100%;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:10px 14px;color:var(--text-primary);font-size:0.9rem;font-family:inherit;box-sizing:border-box;" />
+                        </div>
+                        <div>
+                            <label style="font-size:0.8rem;color:var(--text-muted);display:block;margin-bottom:4px;">Divisa</label>
+                            <select id="edit-goal-currency" style="width:100%;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:10px 14px;color:var(--text-primary);font-size:0.9rem;font-family:inherit;box-sizing:border-box;cursor:pointer;">
+                                <option value="COP" ${goal.divisa === 'COP' ? 'selected' : ''}>COP</option>
+                                <option value="USD" ${goal.divisa === 'USD' ? 'selected' : ''}>USD</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="font-size:0.8rem;color:var(--text-muted);display:block;margin-bottom:4px;">Fecha límite (opcional)</label>
+                            <input id="edit-goal-deadline" type="date" value="${goal.fecha_limite || ''}" style="width:100%;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:10px 14px;color:var(--text-primary);font-size:0.9rem;font-family:inherit;box-sizing:border-box;" />
+                        </div>
+                        <div>
+                            <label style="font-size:0.8rem;color:var(--text-muted);display:block;margin-bottom:4px;">Emoji (opcional)</label>
+                            <input id="edit-goal-emoji" type="text" maxlength="4" value="${goal.emoji || ''}" style="width:100%;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:10px 14px;color:var(--text-primary);font-size:0.9rem;font-family:inherit;box-sizing:border-box;" />
+                        </div>
+                    </div>
+                    <p id="edit-goal-error" style="color:#FF4B4B;font-size:0.8rem;margin:0;display:none;"></p>
+                    <div style="display:flex;gap:0.8rem;justify-content:flex-end;margin-top:0.2rem;">
+                        <button id="edit-goal-cancel" style="background:rgba(255,255,255,0.06);color:var(--text-muted);border:none;padding:10px 18px;border-radius:10px;font-size:0.85rem;font-weight:600;cursor:pointer;font-family:inherit;">Cancelar</button>
+                        <button id="edit-goal-save" style="background:rgba(45,140,255,0.2);color:var(--electric-blue);border:1px solid rgba(45,140,255,0.3);padding:10px 20px;border-radius:10px;font-size:0.85rem;font-weight:700;cursor:pointer;font-family:inherit;">
+                            <i class="fa-solid fa-check"></i> Guardar
+                        </button>
+                    </div>
+                </div>`;
+
+            document.body.appendChild(backdrop);
+
+            function closeModal() {
+                const el = document.getElementById('edit-goal-modal-backdrop');
+                if (el) el.remove();
+            }
+
+            document.getElementById('edit-goal-cancel').addEventListener('click', closeModal);
+            backdrop.addEventListener('click', e => { if (e.target === backdrop) closeModal(); });
+
+            document.getElementById('edit-goal-save').addEventListener('click', async () => {
+                const nombre_meta = document.getElementById('edit-goal-name').value.trim();
+                const monto_objetivo = parseFloat(document.getElementById('edit-goal-amount').value);
+                const divisa = document.getElementById('edit-goal-currency').value;
+                const fecha_limite = document.getElementById('edit-goal-deadline').value;
+                const emoji = document.getElementById('edit-goal-emoji').value.trim();
+                const errorEl = document.getElementById('edit-goal-error');
+
+                if (!nombre_meta) { errorEl.textContent = 'El nombre no puede estar vacío.'; errorEl.style.display = 'block'; return; }
+                if (isNaN(monto_objetivo) || monto_objetivo <= 0) { errorEl.textContent = 'Monto objetivo inválido.'; errorEl.style.display = 'block'; return; }
+
+                document.getElementById('edit-goal-save').disabled = true;
+                errorEl.style.display = 'none';
+
+                try {
+                    const res = await fetch(`/api/metas/${goal.id_meta}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json', 'x-user-id': currentUser.id_usuario },
+                        body: JSON.stringify({ nombre_meta, monto_objetivo, divisa, fecha_limite: fecha_limite || null, emoji: emoji || null })
+                    });
+                    if (res.ok) {
+                        closeModal();
+                        await loadGoals();
+                    } else {
+                        const err = await res.json();
+                        errorEl.textContent = err.error || 'No se pudo actualizar la meta.';
+                        errorEl.style.display = 'block';
+                        document.getElementById('edit-goal-save').disabled = false;
+                    }
+                } catch {
+                    errorEl.textContent = 'Error al conectar con el servidor.';
+                    errorEl.style.display = 'block';
+                    document.getElementById('edit-goal-save').disabled = false;
+                }
+            });
         }
 
         async function deleteGoal(id_meta, nombre_meta) {
