@@ -927,11 +927,36 @@
             box-shadow: 0 0 40px var(--cyan), 0 0 80px rgba(138,43,226,0.4);
         }
 
-        /* Auth card logo glow */
+        /* Auth card logo — prominent neon presence */
         .logo-img {
             box-shadow:
-                0 4px 24px rgba(0,0,0,0.5),
-                0 0 20px rgba(45,140,255,0.15);
+                0 8px 32px rgba(0,0,0,0.6),
+                0 0 30px rgba(45,140,255,0.35),
+                0 0 60px rgba(138,43,226,0.2);
+            border-radius: 20px !important;
+            border: 1px solid rgba(45,140,255,0.3) !important;
+            animation: logoPulse 4s ease-in-out infinite alternate;
+        }
+        @keyframes logoPulse {
+            0%   { box-shadow: 0 8px 32px rgba(0,0,0,0.6), 0 0 24px rgba(45,140,255,0.3), 0 0 50px rgba(138,43,226,0.15); transform: scale(1); }
+            100% { box-shadow: 0 8px 40px rgba(0,0,0,0.7), 0 0 40px rgba(45,140,255,0.55), 0 0 80px rgba(138,43,226,0.3); transform: scale(1.04); }
+        }
+        /* Ring halo behind logo */
+        .logo-img-wrapper {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .logo-img-wrapper::before {
+            content: '';
+            position: absolute;
+            inset: -8px;
+            border-radius: 28px;
+            background: linear-gradient(135deg, rgba(45,140,255,0.25), rgba(138,43,226,0.2), rgba(0,212,255,0.15));
+            filter: blur(10px);
+            z-index: -1;
+            animation: logoPulse 4s ease-in-out infinite alternate;
         }
 
         /* Segment active buttons — neon tint */
@@ -1066,8 +1091,10 @@
         
         <section id="auth-screen">
             <div class="crystal-card auth-card">
-                <div style="display: flex; justify-content: center; margin-bottom: 2rem;">
-                    <img src="SR FINANCE.jpeg" alt="SR FINANCE Logo" class="logo-img" style="height: 80px;">
+                <div style="display: flex; justify-content: center; margin-bottom: 2.5rem;">
+                    <div class="logo-img-wrapper">
+                        <img src="SR FINANCE.jpeg" alt="SR FINANCE Logo" class="logo-img" style="height: 110px;">
+                    </div>
                 </div>
                 
                 <div class="segmented-control" style="margin-bottom: 1.5rem;">
@@ -1120,7 +1147,9 @@
                     <p>Tu patrimonio está creciendo inteligentemente.</p>
                 </div>
                 <div class="logo-container" style="margin-bottom: 0;">
-                    <img src="SR FINANCE.jpeg" alt="SR FINANCE Logo" class="logo-img" style="height: 50px; box-shadow: none; border: none;">
+                    <div class="logo-img-wrapper">
+                        <img src="SR FINANCE.jpeg" alt="SR FINANCE Logo" class="logo-img" style="height: 68px;">
+                    </div>
                 </div>
             </div>
 
