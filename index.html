@@ -1595,6 +1595,117 @@
                 alert("Error al conectar con el servidor local para eliminar el movimiento.");
             }
         }
+
+        function openNewGoalModal() {
+            if (!currentUser) return;
+
+            const backdrop = document.createElement('div');
+            backdrop.className = 'modal-backdrop';
+            backdrop.id = 'goal-modal-backdrop';
+
+            backdrop.innerHTML = `
+                <div class="crystal-card modal-content" style="width: 100%; max-width: 420px; padding: 2rem; display: flex; flex-direction: column; gap: 1.2rem;">
+                    <h3 style="font-size: 1.1rem; font-weight: 700; margin: 0; display: flex; align-items: center; gap: 0.5rem;">
+                        <i class="fa-solid fa-bullseye" style="color: var(--purple-accent);"></i> Nueva Meta de Ahorro
+                    </h3>
+                    <div style="display: flex; flex-direction: column; gap: 0.8rem;">
+                        <div>
+                            <label style="font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 4px;">Nombre de la meta</label>
+                            <input id="goal-name" type="text" placeholder="Ej. Fondo de emergencia" style="width: 100%; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 10px 14px; color: var(--text-primary); font-size: 0.9rem; font-family: inherit; box-sizing: border-box;" />
+                        </div>
+                        <div>
+                            <label style="font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 4px;">Monto objetivo</label>
+                            <input id="goal-amount" type="number" min="1" step="any" placeholder="0" style="width: 100%; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 10px 14px; color: var(--text-primary); font-size: 0.9rem; font-family: inherit; box-sizing: border-box;" />
+                        </div>
+                        <div>
+                            <label style="font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 4px;">Divisa</label>
+                            <select id="goal-currency" style="width: 100%; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 10px 14px; color: var(--text-primary); font-size: 0.9rem; font-family: inherit; box-sizing: border-box; cursor: pointer;">
+                                <option value="COP">COP</option>
+                                <option value="USD">USD</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 4px;">Fecha límite (opcional)</label>
+                            <input id="goal-deadline" type="date" style="width: 100%; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 10px 14px; color: var(--text-primary); font-size: 0.9rem; font-family: inherit; box-sizing: border-box;" />
+                        </div>
+                        <div>
+                            <label style="font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 4px;">Emoji (opcional)</label>
+                            <input id="goal-emoji" type="text" maxlength="4" placeholder="🎯" style="width: 100%; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 10px 14px; color: var(--text-primary); font-size: 0.9rem; font-family: inherit; box-sizing: border-box;" />
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 0.8rem; justify-content: flex-end; margin-top: 0.5rem;">
+                        <button id="goal-cancel-btn" style="background: rgba(255,255,255,0.06); color: var(--text-muted); border: none; padding: 10px 18px; border-radius: 10px; font-size: 0.85rem; font-weight: 600; cursor: pointer; font-family: inherit;">Cancelar</button>
+                        <button id="goal-save-btn" style="background: var(--purple-accent); color: white; border: none; padding: 10px 18px; border-radius: 10px; font-size: 0.85rem; font-weight: 600; cursor: pointer; font-family: inherit;">Guardar Meta</button>
+                    </div>
+                    <p id="goal-error-msg" style="color: #FF4B4B; font-size: 0.8rem; margin: 0; display: none;"></p>
+                </div>
+            `;
+
+            document.body.appendChild(backdrop);
+
+            function closeModal() {
+                const el = document.getElementById('goal-modal-backdrop');
+                if (el) el.remove();
+            }
+
+            document.getElementById('goal-cancel-btn').addEventListener('click', closeModal);
+            backdrop.addEventListener('click', function(e) {
+                if (e.target === backdrop) closeModal();
+            });
+
+            document.getElementById('goal-save-btn').addEventListener('click', async function() {
+                const name = document.getElementById('goal-name').value.trim();
+                const amount = parseFloat(document.getElementById('goal-amount').value);
+                const currency = document.getElementById('goal-currency').value;
+                const deadline = document.getElementById('goal-deadline').value;
+                const emoji = document.getElementById('goal-emoji').value.trim();
+                const errorMsg = document.getElementById('goal-error-msg');
+
+                if (!name) {
+                    errorMsg.textContent = 'Por favor ingresa un nombre para la meta.';
+                    errorMsg.style.display = 'block';
+                    return;
+                }
+                if (isNaN(amount) || amount <= 0) {
+                    errorMsg.textContent = 'Por favor ingresa un monto objetivo válido.';
+                    errorMsg.style.display = 'block';
+                    return;
+                }
+
+                const payload = {
+                    id_meta: 'meta_' + Date.now() + Math.random().toString(36).substr(2, 5),
+                    nombre_meta: name,
+                    monto_objetivo: amount,
+                    monto_actual: 0,
+                    divisa: currency,
+                    emoji: emoji || null,
+                    fecha_limite: deadline || null
+                };
+
+                try {
+                    const response = await fetch('/api/metas', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'x-user-id': currentUser.id_usuario
+                        },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (response.ok) {
+                        closeModal();
+                        await loadGoals();
+                    } else {
+                        const errData = await response.json();
+                        errorMsg.textContent = errData.error || 'No se pudo guardar la meta.';
+                        errorMsg.style.display = 'block';
+                    }
+                } catch (err) {
+                    errorMsg.textContent = 'Error al conectar con el servidor.';
+                    errorMsg.style.display = 'block';
+                }
+            });
+        }
     </script>
 </body>
 </html>
