@@ -1301,20 +1301,42 @@
                 goalsContainer.innerHTML = '';
 
                 const goals = data.metas || [];
+                if (goals.length === 0) {
+                    goalsContainer.innerHTML = `<p style="color: var(--text-muted); font-size: 0.85rem; text-align: center; padding: 1rem 0;">No tienes metas aún. ¡Crea una!</p>`;
+                }
                 goals.forEach(goal => {
-                    const actualAmount = goal.divisa === 'COP' ? (window.balanceCOP || 0) : (window.balanceUSD || 0);
-                    const pct = Math.min(100, Math.max(0, Math.round((actualAmount / goal.monto_objetivo) * 100))) || 0;
+                    const savedAmount = goal.monto_actual || 0;
+                    const pct = Math.min(100, Math.max(0, Math.round((savedAmount / goal.monto_objetivo) * 100))) || 0;
                     const currencySymbol = goal.divisa;
-                    goalsContainer.innerHTML += `
-                        <div class="goal-row">
-                            <div class="goal-info">
-                                <span>🎯 ${goal.nombre_meta} (${actualAmount.toLocaleString()} / ${goal.monto_objetivo.toLocaleString()} ${currencySymbol})</span>
-                                <strong>${pct}%</strong>
-                            </div>
-                            <div class="progress-bar-bg">
-                                <div class="progress-bar-fill" style="width: ${pct}%;"></div>
-                            </div>
+                    const emoji = goal.emoji || '🎯';
+                    const isComplete = savedAmount >= goal.monto_objetivo;
+                    const goalEl = document.createElement('div');
+                    goalEl.className = 'goal-row';
+                    goalEl.style.cssText = 'display: flex; flex-direction: column; gap: 0.5rem; padding-bottom: 0.8rem; border-bottom: 1px solid rgba(255,255,255,0.06);';
+                    goalEl.innerHTML = `
+                        <div class="goal-info" style="display: flex; justify-content: space-between; align-items: center;">
+                            <span style="font-weight: 600; font-size: 0.9rem;">${emoji} ${goal.nombre_meta}</span>
+                            <strong style="color: ${isComplete ? 'var(--emerald)' : 'var(--text-primary)'}; font-size: 0.85rem;">${pct}%${isComplete ? ' ✓' : ''}</strong>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.78rem; color: var(--text-muted);">
+                            <span>${savedAmount.toLocaleString()} / ${goal.monto_objetivo.toLocaleString()} ${currencySymbol}</span>
+                            ${goal.fecha_limite ? `<span>⏳ ${goal.fecha_limite}</span>` : ''}
+                        </div>
+                        <div class="progress-bar-bg">
+                            <div class="progress-bar-fill" style="width: ${pct}%; background: ${isComplete ? 'var(--emerald, #00FF87)' : 'var(--purple-accent)'};"></div>
+                        </div>
+                        <div style="display: flex; gap: 0.5rem; margin-top: 0.2rem;">
+                            <button class="btn-goal-action" data-id="${goal.id_meta}" data-name="${goal.nombre_meta}" data-tipo="ahorro" style="flex:1; background: rgba(0,255,135,0.12); color: #00FF87; border: 1px solid rgba(0,255,135,0.2);">
+                                <i class="fa-solid fa-arrow-down"></i> Ahorrar
+                            </button>
+                            <button class="btn-goal-action" data-id="${goal.id_meta}" data-name="${goal.nombre_meta}" data-tipo="retiro" style="flex:1; background: rgba(255,75,75,0.1); color: #FF4B4B; border: 1px solid rgba(255,75,75,0.2);">
+                                <i class="fa-solid fa-arrow-up"></i> Retirar
+                            </button>
                         </div>`;
+                    goalEl.querySelectorAll('.btn-goal-action').forEach(btn => {
+                        btn.addEventListener('click', () => openGoalMovementModal(btn.dataset.id, btn.dataset.name, btn.dataset.tipo));
+                    });
+                    goalsContainer.appendChild(goalEl);
                 });
             } catch (err) {
                 console.log("Error cargando metas...", err);
@@ -1593,6 +1615,96 @@
             } catch (error) {
                 console.error("Error deleting tx:", error);
                 alert("Error al conectar con el servidor local para eliminar el movimiento.");
+            }
+        }
+
+        function openGoalMovementModal(id_meta, nombre_meta, tipo) {
+            if (!currentUser) return;
+
+            const isAhorro = tipo === 'ahorro';
+            const accentColor = isAhorro ? '#00FF87' : '#FF4B4B';
+            const accentBg = isAhorro ? 'rgba(0,255,135,0.15)' : 'rgba(255,75,75,0.15)';
+            const label = isAhorro ? 'Ahorrar' : 'Retirar';
+            const icon = isAhorro ? 'fa-arrow-down' : 'fa-arrow-up';
+
+            const backdrop = document.createElement('div');
+            backdrop.className = 'modal-backdrop';
+            backdrop.id = 'goal-movement-modal-backdrop';
+
+            backdrop.innerHTML = `
+                <div class="crystal-card modal-content" style="width: 100%; max-width: 380px; padding: 2rem; display: flex; flex-direction: column; gap: 1.2rem;">
+                    <h3 style="font-size: 1.1rem; font-weight: 700; margin: 0; display: flex; align-items: center; gap: 0.5rem;">
+                        <i class="fa-solid ${icon}" style="color: ${accentColor};"></i> ${label} en meta
+                    </h3>
+                    <p style="margin: 0; color: var(--text-muted); font-size: 0.85rem;">${nombre_meta}</p>
+                    <div>
+                        <label style="font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 4px;">Monto</label>
+                        <input id="movement-amount" type="number" min="1" step="any" placeholder="0" autofocus
+                            style="width: 100%; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 12px 14px; color: var(--text-primary); font-size: 1rem; font-family: inherit; box-sizing: border-box;" />
+                    </div>
+                    <p id="movement-error-msg" style="color: #FF4B4B; font-size: 0.8rem; margin: 0; display: none;"></p>
+                    <div style="display: flex; gap: 0.8rem; justify-content: flex-end;">
+                        <button id="movement-cancel-btn" style="background: rgba(255,255,255,0.06); color: var(--text-muted); border: none; padding: 10px 18px; border-radius: 10px; font-size: 0.85rem; font-weight: 600; cursor: pointer; font-family: inherit;">Cancelar</button>
+                        <button id="movement-save-btn" style="background: ${accentBg}; color: ${accentColor}; border: 1px solid ${accentColor}33; padding: 10px 20px; border-radius: 10px; font-size: 0.85rem; font-weight: 700; cursor: pointer; font-family: inherit;">
+                            <i class="fa-solid ${icon}"></i> ${label}
+                        </button>
+                    </div>
+                </div>`;
+
+            document.body.appendChild(backdrop);
+
+            const amountInput = document.getElementById('movement-amount');
+            amountInput.focus();
+
+            function closeModal() {
+                const el = document.getElementById('goal-movement-modal-backdrop');
+                if (el) el.remove();
+            }
+
+            document.getElementById('movement-cancel-btn').addEventListener('click', closeModal);
+            backdrop.addEventListener('click', e => { if (e.target === backdrop) closeModal(); });
+
+            amountInput.addEventListener('keydown', e => { if (e.key === 'Enter') doMovement(); });
+            document.getElementById('movement-save-btn').addEventListener('click', doMovement);
+
+            async function doMovement() {
+                const monto = parseFloat(amountInput.value);
+                const errorMsg = document.getElementById('movement-error-msg');
+
+                if (isNaN(monto) || monto <= 0) {
+                    errorMsg.textContent = 'Ingresa un monto válido mayor a 0.';
+                    errorMsg.style.display = 'block';
+                    return;
+                }
+
+                document.getElementById('movement-save-btn').disabled = true;
+                errorMsg.style.display = 'none';
+
+                try {
+                    const response = await fetch(`/api/metas/${id_meta}/movimiento`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'x-user-id': currentUser.id_usuario
+                        },
+                        body: JSON.stringify({ tipo, monto })
+                    });
+
+                    const result = await response.json();
+
+                    if (response.ok) {
+                        closeModal();
+                        await loadDashboardData();
+                    } else {
+                        errorMsg.textContent = result.error || 'No se pudo registrar el movimiento.';
+                        errorMsg.style.display = 'block';
+                        document.getElementById('movement-save-btn').disabled = false;
+                    }
+                } catch (err) {
+                    errorMsg.textContent = 'Error al conectar con el servidor.';
+                    errorMsg.style.display = 'block';
+                    document.getElementById('movement-save-btn').disabled = false;
+                }
             }
         }
 
