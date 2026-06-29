@@ -1242,6 +1242,39 @@
                         </form>
                     </div>
 
+                    <div class="crystal-card" id="converter-card" style="background: radial-gradient(circle at top left, rgba(0,212,255,0.07) 0%, var(--card-glass) 70%);">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.2rem;">
+                            <h3 style="font-weight:600; font-size:1rem; display:flex; align-items:center; gap:8px;">
+                                <i class="fa-solid fa-arrow-right-arrow-left" style="color:var(--cyan);"></i> Convertidor
+                            </h3>
+                            <span id="converter-rate-badge" style="font-size:0.72rem; color:var(--text-muted); background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:3px 8px;">
+                                Cargando tasa...
+                            </span>
+                        </div>
+                        <div style="display:flex; flex-direction:column; gap:0.7rem;">
+                            <div style="position:relative;">
+                                <label style="font-size:0.75rem; color:var(--text-muted); display:block; margin-bottom:4px;">USD</label>
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <span style="font-size:1rem; color:var(--cyan);">$</span>
+                                    <input id="conv-usd" type="number" min="0" step="any" placeholder="0.00"
+                                        style="flex:1; background:rgba(255,255,255,0.04); border:1px solid rgba(0,212,255,0.2); border-radius:10px; padding:10px 12px; color:var(--text-main); font-size:1rem; font-family:inherit; outline:none; transition:border-color 0.2s;" />
+                                </div>
+                            </div>
+                            <div style="display:flex; align-items:center; justify-content:center;">
+                                <i class="fa-solid fa-up-down" style="color:var(--text-muted); font-size:0.85rem;"></i>
+                            </div>
+                            <div>
+                                <label style="font-size:0.75rem; color:var(--text-muted); display:block; margin-bottom:4px;">COP</label>
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <span style="font-size:1rem; color:var(--electric-blue);">$</span>
+                                    <input id="conv-cop" type="number" min="0" step="any" placeholder="0"
+                                        style="flex:1; background:rgba(255,255,255,0.04); border:1px solid rgba(45,140,255,0.2); border-radius:10px; padding:10px 12px; color:var(--text-main); font-size:1rem; font-family:inherit; outline:none; transition:border-color 0.2s;" />
+                                </div>
+                            </div>
+                        </div>
+                        <p id="converter-updated" style="font-size:0.7rem; color:var(--text-muted); margin-top:0.9rem; text-align:right;"></p>
+                    </div>
+
                     <div class="crystal-card ai-card">
                         <div class="ai-orb-container">
                             <div class="ai-orb"></div>
@@ -1510,6 +1543,7 @@
             
             document.querySelector('.bottom-nav').style.display = 'flex';
             loadDashboardData();
+            initConverter();
         }
 
         function logoutUser() {
@@ -1721,6 +1755,42 @@
                         }
                     }
                 }
+            });
+        }
+
+        let usdToCopRate = null;
+
+        async function initConverter() {
+            try {
+                const res = await fetch('https://open.er-api.com/v6/latest/USD');
+                const data = await res.json();
+                usdToCopRate = data.rates && data.rates.COP;
+                if (!usdToCopRate) throw new Error('no rate');
+
+                const badge = document.getElementById('converter-rate-badge');
+                const updated = document.getElementById('converter-updated');
+                if (badge) badge.textContent = `1 USD = ${usdToCopRate.toLocaleString('es', {maximumFractionDigits:0})} COP`;
+                if (updated) {
+                    const now = new Date();
+                    updated.textContent = `Actualizado: ${now.toLocaleTimeString('es', {hour:'2-digit', minute:'2-digit'})}`;
+                }
+            } catch {
+                const badge = document.getElementById('converter-rate-badge');
+                if (badge) badge.textContent = 'Tasa no disponible';
+                usdToCopRate = 4100;
+            }
+
+            const usdInput = document.getElementById('conv-usd');
+            const copInput = document.getElementById('conv-cop');
+            if (!usdInput || !copInput) return;
+
+            usdInput.addEventListener('input', () => {
+                const val = parseFloat(usdInput.value);
+                copInput.value = isNaN(val) ? '' : Math.round(val * usdToCopRate).toLocaleString('es').replace(/\./g, '');
+            });
+            copInput.addEventListener('input', () => {
+                const val = parseFloat(copInput.value);
+                usdInput.value = isNaN(val) ? '' : (val / usdToCopRate).toFixed(2);
             });
         }
 
