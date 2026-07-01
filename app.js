@@ -398,8 +398,8 @@ app.post('/api/ai/consejo', async (req, res) => {
   if (!userId) return res.status(401).json({ error: 'No autorizado' });
 
   const { pregunta, contexto } = req.body;
-  const XAI_API_KEY = process.env.XAI_API_KEY;
-  if (!XAI_API_KEY) return res.status(503).json({ error: 'API key de Grok no configurada' });
+  const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+  if (!GEMINI_API_KEY) return res.status(503).json({ error: 'API key de Gemini no configurada. Ve a aistudio.google.com para obtenerla gratis.' });
 
   // Build financial context from DB
   const getFinancialSummary = () => new Promise((resolve) => {
