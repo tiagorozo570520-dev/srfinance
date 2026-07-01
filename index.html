@@ -1147,7 +1147,14 @@
                     </div>
                     <div class="form-group">
                         <label for="login-password">Contraseña</label>
-                        <input type="password" id="login-password" class="input-premium" placeholder="••••••••" required autocomplete="current-password">
+                        <div style="position:relative;">
+                            <input type="password" id="login-password" class="input-premium" placeholder="••••••••" required autocomplete="current-password" style="padding-right:2.8rem;">
+                            <button type="button" onclick="togglePassword('login-password', this)" tabindex="-1"
+                                style="position:absolute; right:12px; top:50%; transform:translateY(-50%); background:none; border:none; cursor:pointer; color:var(--text-muted); font-size:1rem; padding:4px; transition:color 0.2s;"
+                                title="Mostrar/ocultar contraseña">
+                                <i class="fa-regular fa-eye"></i>
+                            </button>
+                        </div>
                     </div>
                     <button type="submit" class="btn-submit-premium" style="margin-top: 1rem;">
                         <i class="fa-solid fa-right-to-bracket"></i> Ingresar
@@ -1165,8 +1172,15 @@
                         <input type="text" id="register-username" class="input-premium" placeholder="ej. santiago" required autocomplete="username">
                     </div>
                     <div class="form-group">
-                        <label for="register-password">Contraseña</label>
-                        <input type="password" id="register-password" class="input-premium" placeholder="Crea una contraseña" required autocomplete="new-password">
+<label for="register-password">Contraseña</label>
+                        <div style="position:relative;">
+                            <input type="password" id="register-password" class="input-premium" placeholder="Crea una contraseña" required autocomplete="new-password" style="padding-right:2.8rem;">
+                            <button type="button" onclick="togglePassword('register-password', this)" tabindex="-1"
+                                style="position:absolute; right:12px; top:50%; transform:translateY(-50%); background:none; border:none; cursor:pointer; color:var(--text-muted); font-size:1rem; padding:4px; transition:color 0.2s;"
+                                title="Mostrar/ocultar contraseña">
+                                <i class="fa-regular fa-eye"></i>
+                            </button>
+                        </div>
                     </div>
                     <button type="submit" class="btn-submit-premium" style="margin-top: 1rem;">
                         <i class="fa-solid fa-user-plus"></i> Crear Cuenta
@@ -1447,6 +1461,20 @@
             
             document.getElementById('login-form').style.display = isLogin ? 'block' : 'none';
             document.getElementById('register-form').style.display = isLogin ? 'none' : 'block';
+        }
+
+        function togglePassword(inputId, btn) {
+            const input = document.getElementById(inputId);
+            const icon = btn.querySelector('i');
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.classList.replace('fa-eye', 'fa-eye-slash');
+                btn.style.color = 'var(--cyan)';
+            } else {
+                input.type = 'password';
+                icon.classList.replace('fa-eye-slash', 'fa-eye');
+                btn.style.color = 'var(--text-muted)';
+            }
         }
 
         async function handleLogin(e) {
