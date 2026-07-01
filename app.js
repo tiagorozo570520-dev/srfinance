@@ -446,33 +446,30 @@ Datos financieros reales del usuario hoy (${new Date().toLocaleDateString('es')}
 - Últimos 20 movimientos:\n${resumenRecientes || 'Sin movimientos'}
 - Metas de ahorro: ${resumenMetas}${contextExtra}`;
 
-    const body = {
-      model: 'grok-3-mini',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: pregunta || 'Analiza mis finanzas y dame tus mejores consejos para mejorarlas.' }
-      ],
-      max_tokens: 600,
-      temperature: 0.7
+    const fullPrompt = `${systemPrompt}\n\nPregunta del usuario: ${pregunta || 'Analiza mis finanzas y dame tus mejores consejos para mejorarlas.'}`;
+
+    const geminiBody = {
+      contents: [{ parts: [{ text: fullPrompt }] }],
+      generationConfig: { maxOutputTokens: 600, temperature: 0.7 }
     };
 
-    const grokRes = await fetch('https://api.x.ai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${XAI_API_KEY}`
-      },
-      body: JSON.stringify(body)
-    });
+    const geminiRes = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(geminiBody)
+      }
+    );
 
-    if (!grokRes.ok) {
-      const errText = await grokRes.text();
-      console.error('Grok API error:', errText);
-      return res.status(502).json({ error: 'Error al consultar Grok: ' + errText });
+    if (!geminiRes.ok) {
+      const errText = await geminiRes.text();
+      console.error('Gemini API error:', errText);
+      return res.status(502).json({ error: 'Error al consultar Gemini: ' + errText });
     }
 
-    const data = await grokRes.json();
-    const respuesta = data.choices?.[0]?.message?.content || 'Sin respuesta de Grok.';
+    const data = await geminiRes.json();
+    const respuesta = data.candidates?.[0]?.content?.parts?.[0]?.text || 'Sin respuesta de Gemini.';
     res.json({ respuesta });
   } catch (e) {
     console.error('SR AI error:', e);
