@@ -392,6 +392,94 @@ app.get(['/metas/:id/historial', '/api/metas/:id/historial'], checkAuth, (req, r
   });
 });
 
+// ── SR AI ENGINE — Grok Financial Advisor ──────────────────────────────────
+app.post('/api/ai/consejo', async (req, res) => {
+  const userId = req.headers['x-user-id'];
+  if (!userId) return res.status(401).json({ error: 'No autorizado' });
+
+  const { pregunta, contexto } = req.body;
+  const XAI_API_KEY = process.env.XAI_API_KEY;
+  if (!XAI_API_KEY) return res.status(503).json({ error: 'API key de Grok no configurada' });
+
+  // Build financial context from DB
+  const getFinancialSummary = () => new Promise((resolve) => {
+    db.all(
+      `SELECT tipo, divisa, SUM(monto) as total FROM Movimientos WHERE id_usuario=? GROUP BY tipo, divisa`,
+      [userId],
+      (err, totals) => {
+        db.all(
+          `SELECT descripcion, tipo, divisa, monto, fecha FROM Movimientos WHERE id_usuario=? ORDER BY fecha DESC LIMIT 20`,
+          [userId],
+          (err2, recientes) => {
+            db.all(
+              `SELECT nombre_meta, monto_objetivo, monto_actual, divisa, fecha_limite FROM Metas WHERE id_usuario=?`,
+              [userId],
+              (err3, metas) => {
+                resolve({ totals: totals || [], recientes: recientes || [], metas: metas || [] });
+              }
+            );
+          }
+        );
+      }
+    );
+  });
+
+  try {
+    const { totals, recientes, metas } = await getFinancialSummary();
+
+    const resumenTotales = totals.map(t => `${t.tipo} ${t.divisa}: ${t.total.toLocaleString()}`).join(' | ');
+    const resumenRecientes = recientes.map(m =>
+      `[${m.fecha}] ${m.tipo} ${m.divisa} ${m.monto.toLocaleString()} — ${m.descripcion}`
+    ).join('\n');
+    const resumenMetas = metas.length
+      ? metas.map(m => `"${m.nombre_meta}": ${m.monto_actual}/${m.monto_objetivo} ${m.divisa}${m.fecha_limite ? ` (límite: ${m.fecha_limite})` : ''}`).join(', ')
+      : 'Sin metas registradas.';
+
+    const contextExtra = contexto ? `\nDatos extra del cliente: ${contexto}` : '';
+
+    const systemPrompt = `Eres SR AI, el mejor consejero financiero personal del mundo, integrado en SR Finance, app financiera colombiana.
+Tu misión: analizar los datos REALES del usuario y dar consejos accionables, claros y motivadores para maximizar su éxito financiero.
+Habla siempre en español colombiano, de forma directa, cálida y profesional. Usa emojis con moderación.
+Máximo 4 párrafos o bullet points. Sin introducciones largas — ve directo al consejo valioso.
+Datos financieros reales del usuario hoy (${new Date().toLocaleDateString('es')}):
+- Resumen de totales: ${resumenTotales || 'Sin movimientos aún'}
+- Últimos 20 movimientos:\n${resumenRecientes || 'Sin movimientos'}
+- Metas de ahorro: ${resumenMetas}${contextExtra}`;
+
+    const body = {
+      model: 'grok-3-mini',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: pregunta || 'Analiza mis finanzas y dame tus mejores consejos para mejorarlas.' }
+      ],
+      max_tokens: 600,
+      temperature: 0.7
+    };
+
+    const grokRes = await fetch('https://api.x.ai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${XAI_API_KEY}`
+      },
+      body: JSON.stringify(body)
+    });
+
+    if (!grokRes.ok) {
+      const errText = await grokRes.text();
+      console.error('Grok API error:', errText);
+      return res.status(502).json({ error: 'Error al consultar Grok: ' + errText });
+    }
+
+    const data = await grokRes.json();
+    const respuesta = data.choices?.[0]?.message?.content || 'Sin respuesta de Grok.';
+    res.json({ respuesta });
+  } catch (e) {
+    console.error('SR AI error:', e);
+    res.status(500).json({ error: 'Error interno del SR AI Engine' });
+  }
+});
+
 // Servir index.html en la raíz
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));

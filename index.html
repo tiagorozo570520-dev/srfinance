@@ -334,8 +334,45 @@
             background: radial-gradient(circle at top right, rgba(138, 43, 226, 0.12) 0%, var(--card-glass) 60%);
             border-color: rgba(138, 43, 226, 0.2);
             display: flex;
-            align-items: center;
-            gap: 1.5rem;
+            flex-direction: column;
+            gap: 0;
+        }
+        .ai-quick-btn {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 20px;
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            padding: 5px 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-family: inherit;
+            white-space: nowrap;
+        }
+        .ai-quick-btn:hover {
+            background: rgba(0,212,255,0.1);
+            border-color: rgba(0,212,255,0.3);
+            color: var(--cyan);
+        }
+        .ai-msg-user {
+            background: rgba(0,212,255,0.1);
+            border-radius: 10px 10px 4px 10px;
+            padding: 7px 11px;
+            margin: 6px 0 2px auto;
+            max-width: 90%;
+            font-size: 0.82rem;
+            color: var(--cyan);
+            text-align: right;
+        }
+        .ai-msg-bot {
+            background: rgba(138,43,226,0.1);
+            border-radius: 10px 10px 10px 4px;
+            padding: 8px 12px;
+            margin: 2px auto 6px 0;
+            max-width: 98%;
+            font-size: 0.83rem;
+            line-height: 1.55;
+            white-space: pre-wrap;
         }
 
         .ai-orb-container {
@@ -1275,15 +1312,46 @@
                         <p id="converter-updated" style="font-size:0.7rem; color:var(--text-muted); margin-top:0.9rem; text-align:right;"></p>
                     </div>
 
-                    <div class="crystal-card ai-card">
-                        <div class="ai-orb-container">
-                            <div class="ai-orb"></div>
+                    <div class="crystal-card ai-card" style="padding:1.2rem; display:flex; flex-direction:column; gap:0.9rem;">
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <div class="ai-orb-container" style="flex-shrink:0;">
+                                <div class="ai-orb"></div>
+                            </div>
+                            <div>
+                                <h4 style="font-weight:700; font-size:1rem; margin:0; background:linear-gradient(90deg,var(--cyan),var(--electric-blue)); -webkit-background-clip:text; -webkit-text-fill-color:transparent;">SR AI Engine</h4>
+                                <p style="font-size:0.72rem; color:var(--text-muted); margin:0;">Powered by Grok · Consejero Financiero</p>
+                            </div>
                         </div>
-                        <div>
-                            <h4 style="font-weight:600; font-size:1rem; margin-bottom:0.2rem;">SR AI Engine</h4>
-                            <p style="color:var(--text-muted); font-size:0.85rem; line-height:1.4;">
-                                "¿Cuánto puedo gastar en entretenimiento este fin de semana?"
-                            </p>
+
+                        <div id="ai-chat-box" style="
+                            min-height:100px; max-height:260px; overflow-y:auto;
+                            background:rgba(0,0,0,0.25); border:1px solid rgba(255,255,255,0.06);
+                            border-radius:14px; padding:12px 14px;
+                            font-size:0.84rem; line-height:1.6; color:var(--text-primary);
+                            scrollbar-width:thin; scrollbar-color:rgba(0,212,255,0.3) transparent;
+                        ">
+                            <span style="color:var(--text-muted); font-style:italic;">Analizando tus finanzas...</span>
+                        </div>
+
+                        <div style="display:flex; gap:8px; align-items:center;">
+                            <input id="ai-pregunta-input" type="text" placeholder="Pregúntale algo a Grok..." maxlength="300"
+                                style="flex:1; background:rgba(255,255,255,0.05); border:1px solid rgba(0,212,255,0.2);
+                                border-radius:12px; padding:9px 14px; color:var(--text-main); font-size:0.84rem;
+                                font-family:inherit; outline:none; transition:border-color 0.2s;"
+                                onkeydown="if(event.key==='Enter') askGrok()"
+                                onfocus="this.style.borderColor='var(--cyan)'"
+                                onblur="this.style.borderColor='rgba(0,212,255,0.2)'" />
+                            <button onclick="askGrok()" id="ai-send-btn" title="Enviar"
+                                style="background:linear-gradient(135deg,var(--cyan),var(--electric-blue));
+                                border:none; border-radius:12px; padding:9px 14px; cursor:pointer;
+                                color:#000; font-weight:700; font-size:0.9rem; transition:opacity 0.2s; flex-shrink:0;">
+                                <i class="fa-solid fa-paper-plane"></i>
+                            </button>
+                        </div>
+                        <div style="display:flex; flex-wrap:wrap; gap:6px;">
+                            <button onclick="askGrok('¿En qué estoy gastando demasiado?')" class="ai-quick-btn">📊 Gastos excesivos</button>
+                            <button onclick="askGrok('¿Cómo mejoro mis ahorros?')" class="ai-quick-btn">💰 Mejorar ahorros</button>
+                            <button onclick="askGrok('¿Cuánto puedo gastar esta semana?')" class="ai-quick-btn">🎯 Presupuesto semanal</button>
                         </div>
                     </div>
                 </div>
@@ -1589,10 +1657,53 @@
         }
 
         function updateAISuggestions() {
-            const aiText = document.querySelector('.ai-card p');
-            if (!aiText) return;
-            const name = currentUser ? currentUser.nombre : 'Usuario';
-            aiText.innerHTML = `"Hola ${name}, te sugiero monitorear tu balance en COP y mantener al día tu fondo guardado en USD para optimizar tu salud financiera."`;
+            askGrok();
+        }
+
+        async function askGrok(preguntaFija) {
+            if (!currentUser) return;
+            const chatBox = document.getElementById('ai-chat-box');
+            const input = document.getElementById('ai-pregunta-input');
+            const sendBtn = document.getElementById('ai-send-btn');
+            if (!chatBox) return;
+
+            const pregunta = preguntaFija || (input ? input.value.trim() : '');
+            if (input) input.value = '';
+
+            if (pregunta) {
+                const userDiv = document.createElement('div');
+                userDiv.className = 'ai-msg-user';
+                userDiv.textContent = pregunta;
+                chatBox.appendChild(userDiv);
+            }
+
+            const loadingDiv = document.createElement('div');
+            loadingDiv.className = 'ai-msg-bot';
+            loadingDiv.innerHTML = '<span style="opacity:0.5; font-style:italic;">Grok está analizando tus finanzas<span class="ai-dots">...</span></span>';
+            chatBox.appendChild(loadingDiv);
+            chatBox.scrollTop = chatBox.scrollHeight;
+
+            if (sendBtn) { sendBtn.disabled = true; sendBtn.style.opacity = '0.5'; }
+
+            try {
+                const res = await fetch('/api/ai/consejo', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-user-id': currentUser.id_usuario
+                    },
+                    body: JSON.stringify({ pregunta: pregunta || null })
+                });
+                const data = await res.json();
+                const respuesta = data.respuesta || data.error || 'Sin respuesta.';
+                loadingDiv.innerHTML = '';
+                loadingDiv.textContent = respuesta;
+            } catch (e) {
+                loadingDiv.innerHTML = '<span style="color:#ff6b6b;">Error al conectar con SR AI Engine.</span>';
+            }
+
+            chatBox.scrollTop = chatBox.scrollHeight;
+            if (sendBtn) { sendBtn.disabled = false; sendBtn.style.opacity = '1'; }
         }
 
         async function loadGoals() {
