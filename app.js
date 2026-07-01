@@ -428,48 +428,79 @@ app.post('/api/ai/consejo', async (req, res) => {
     const { totals, recientes, metas } = await getFinancialSummary();
 
     const resumenTotales = totals.map(t => `${t.tipo} ${t.divisa}: ${t.total.toLocaleString()}`).join(' | ');
-    const resumenRecientes = recientes.map(m =>
-      `[${m.fecha}] ${m.tipo} ${m.divisa} ${m.monto.toLocaleString()} — ${m.descripcion}`
-    ).join('\n');
+    const resumenRecientes = recientes.slice(0, 10).map(m =>
+      `${m.tipo} ${m.divisa} $${m.monto} - ${m.descripcion} (${m.fecha})`
+    ).join('; ');
     const resumenMetas = metas.length
-      ? metas.map(m => `"${m.nombre_meta}": ${m.monto_actual}/${m.monto_objetivo} ${m.divisa}${m.fecha_limite ? ` (límite: ${m.fecha_limite})` : ''}`).join(', ')
-      : 'Sin metas registradas.';
+      ? metas.map(m => `${m.nombre_meta}: ${m.monto_actual}/${m.monto_objetivo} ${m.divisa}`).join(', ')
+      : 'Sin metas.';
 
-    const contextExtra = contexto ? `\nDatos extra del cliente: ${contexto}` : '';
+    const systemPrompt = `Eres SR AI, consejero financiero experto de SR Finance (app colombiana).
+Analiza los datos REALES y da máximo 4 consejos concretos y accionables en español. Sin saludos largos.
+Fecha: ${new Date().toLocaleDateString('es-CO')}
+Totales: ${resumenTotales || 'Sin movimientos'}
+Últimos movimientos: ${resumenRecientes || 'Ninguno'}
+Metas: ${resumenMetas}${contexto ? ' | Extra: ' + contexto : ''}
+Pregunta: ${pregunta || 'Dame tus mejores consejos para mejorar mis finanzas.'}`;
 
-    const systemPrompt = `Eres SR AI, el mejor consejero financiero personal del mundo, integrado en SR Finance, app financiera colombiana.
-Tu misión: analizar los datos REALES del usuario y dar consejos accionables, claros y motivadores para maximizar su éxito financiero.
-Habla siempre en español colombiano, de forma directa, cálida y profesional. Usa emojis con moderación.
-Máximo 4 párrafos o bullet points. Sin introducciones largas — ve directo al consejo valioso.
-Datos financieros reales del usuario hoy (${new Date().toLocaleDateString('es')}):
-- Resumen de totales: ${resumenTotales || 'Sin movimientos aún'}
-- Últimos 20 movimientos:\n${resumenRecientes || 'Sin movimientos'}
-- Metas de ahorro: ${resumenMetas}${contextExtra}`;
+    // Intenta Gemini primero, luego Groq como fallback
+    const GROQ_API_KEY = process.env.GROQ_API_KEY;
+    let respuesta = null;
 
-    const fullPrompt = `${systemPrompt}\n\nPregunta del usuario: ${pregunta || 'Analiza mis finanzas y dame tus mejores consejos para mejorarlas.'}`;
-
-    const geminiBody = {
-      contents: [{ parts: [{ text: fullPrompt }] }],
-      generationConfig: { maxOutputTokens: 600, temperature: 0.7 }
-    };
-
-    const geminiRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(geminiBody)
+    if (GEMINI_API_KEY) {
+      try {
+        const geminiBody = {
+          contents: [{ parts: [{ text: systemPrompt }] }],
+          generationConfig: { maxOutputTokens: 1024, temperature: 0.7 }
+        };
+        const geminiRes = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
+          { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(geminiBody) }
+        );
+        if (geminiRes.ok) {
+          const data = await geminiRes.json();
+          respuesta = data.candidates?.[0]?.content?.parts?.[0]?.text || null;
+        } else {
+          const errJson = await geminiRes.json().catch(() => ({}));
+          console.error('Gemini error:', errJson?.error?.code, errJson?.error?.message?.slice(0, 80));
+        }
+      } catch (e) {
+        console.error('Gemini fetch error:', e.message);
       }
-    );
-
-    if (!geminiRes.ok) {
-      const errText = await geminiRes.text();
-      console.error('Gemini API error:', errText);
-      return res.status(502).json({ error: 'Error al consultar Gemini: ' + errText });
     }
 
-    const data = await geminiRes.json();
-    const respuesta = data.candidates?.[0]?.content?.parts?.[0]?.text || 'Sin respuesta de Gemini.';
+    if (!respuesta && GROQ_API_KEY) {
+      try {
+        const groqBody = {
+          model: 'llama-3.3-70b-versatile',
+          messages: [
+            { role: 'system', content: 'Eres SR AI, consejero financiero experto de SR Finance (app colombiana). Responde siempre en español, máximo 4 consejos concretos, sin saludos largos.' },
+            { role: 'user', content: systemPrompt }
+          ],
+          max_tokens: 800,
+          temperature: 0.7
+        };
+        const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ_API_KEY}` },
+          body: JSON.stringify(groqBody)
+        });
+        if (groqRes.ok) {
+          const data = await groqRes.json();
+          respuesta = data.choices?.[0]?.message?.content || null;
+        } else {
+          const errText = await groqRes.text();
+          console.error('Groq error:', errText.slice(0, 100));
+        }
+      } catch (e) {
+        console.error('Groq fetch error:', e.message);
+      }
+    }
+
+    if (!respuesta) {
+      return res.status(503).json({ error: '⏳ La cuota de IA gratuita se agotó por hoy. Vuelve mañana o agrega una clave de Groq (console.groq.com) para 14,400 consultas/día gratis.' });
+    }
+
     res.json({ respuesta });
   } catch (e) {
     console.error('SR AI error:', e);
