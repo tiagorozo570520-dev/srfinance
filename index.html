@@ -1501,27 +1501,98 @@
                 doc.text(`Usuario: ${currentUser.nombre} (@${currentUser.username})`, W / 2, 32, { align: 'center' });
                 y = 46;
 
-                // ── Resumen de balances ──────────────────────────
+                // ── Resumen mes actual + histórico ───────────────
+                const ahora = new Date();
+                const mesActual = `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, '0')}`;
+                const mesesNombres = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+                const nombreMes = `${mesesNombres[ahora.getMonth()]} ${ahora.getFullYear()}`;
+
+                const delMes = movimientos.filter(m => (m.fecha || '').startsWith(mesActual));
+                const mesIngCOP = delMes.filter(m => m.tipo === 'Ingreso' && m.divisa === 'COP').reduce((s, m) => s + m.monto, 0);
+                const mesGasCOP = delMes.filter(m => m.tipo === 'Gasto'   && m.divisa === 'COP').reduce((s, m) => s + m.monto, 0);
+                const mesLibCOP = mesIngCOP - mesGasCOP;
+                const mesIngUSD = delMes.filter(m => m.tipo === 'Ingreso' && m.divisa === 'USD').reduce((s, m) => s + m.monto, 0);
+                const mesGasUSD = delMes.filter(m => m.tipo === 'Gasto'   && m.divisa === 'USD').reduce((s, m) => s + m.monto, 0);
+                const mesLibUSD = mesIngUSD - mesGasUSD;
+
                 const totalIngCOP = movimientos.filter(m => m.tipo === 'Ingreso' && m.divisa === 'COP').reduce((s, m) => s + m.monto, 0);
                 const totalGasCOP = movimientos.filter(m => m.tipo === 'Gasto'   && m.divisa === 'COP').reduce((s, m) => s + m.monto, 0);
                 const totalIngUSD = movimientos.filter(m => m.tipo === 'Ingreso' && m.divisa === 'USD').reduce((s, m) => s + m.monto, 0);
                 const totalGasUSD = movimientos.filter(m => m.tipo === 'Gasto'   && m.divisa === 'USD').reduce((s, m) => s + m.monto, 0);
 
-                doc.setFillColor(20, 20, 30);
-                doc.roundedRect(margin, y, W - margin * 2, 28, 3, 3, 'F');
+                const fmt = (n, div) => div === 'COP'
+                    ? `$${Math.abs(n).toLocaleString('es-CO')}`
+                    : `$${Math.abs(n).toLocaleString('en', {minimumFractionDigits:2})}`;
+
+                // Caja mes actual
+                doc.setFillColor(10, 30, 40);
+                doc.roundedRect(margin, y, W - margin * 2, 52, 3, 3, 'F');
+                doc.setDrawColor(0, 212, 255);
+                doc.setLineWidth(0.5);
+                doc.roundedRect(margin, y, W - margin * 2, 52, 3, 3, 'S');
+
                 doc.setFontSize(9);
                 doc.setFont('helvetica', 'bold');
                 doc.setTextColor(0, 212, 255);
-                doc.text('RESUMEN FINANCIERO', margin + 5, y + 7);
+                doc.text(`RESUMEN — ${nombreMes.toUpperCase()}`, margin + 5, y + 8);
 
+                // COP columna izquierda
+                doc.setFontSize(8);
+                doc.setTextColor(160, 160, 180);
+                doc.text('COP (Pesos)', margin + 5, y + 16);
                 doc.setFont('helvetica', 'normal');
                 doc.setTextColor(80, 220, 140);
-                doc.text(`Ingresos COP: $${totalIngCOP.toLocaleString('es-CO')}`, margin + 5, y + 15);
-                doc.text(`Ingresos USD: $${totalIngUSD.toLocaleString('en', {minimumFractionDigits:2})}`, margin + 5, y + 22);
+                doc.text(`Total Ingresos:`, margin + 5, y + 24);
+                doc.text(fmt(mesIngCOP, 'COP'), margin + 45, y + 24);
                 doc.setTextColor(255, 90, 90);
-                doc.text(`Gastos COP: $${totalGasCOP.toLocaleString('es-CO')}`, W / 2 + 5, y + 15);
-                doc.text(`Gastos USD: $${totalGasUSD.toLocaleString('en', {minimumFractionDigits:2})}`, W / 2 + 5, y + 22);
-                y += 34;
+                doc.text(`Total Gastos:`, margin + 5, y + 31);
+                doc.text(fmt(mesGasCOP, 'COP'), margin + 45, y + 31);
+                doc.setFont('helvetica', 'bold');
+                doc.setTextColor(mesLibCOP >= 0 ? 80 : 255, mesLibCOP >= 0 ? 220 : 90, mesLibCOP >= 0 ? 140 : 90);
+                doc.text(`Saldo libre:`, margin + 5, y + 39);
+                doc.text((mesLibCOP < 0 ? '-' : '') + fmt(mesLibCOP, 'COP'), margin + 45, y + 39);
+
+                // Línea divisoria vertical
+                doc.setDrawColor(40, 60, 80);
+                doc.setLineWidth(0.3);
+                doc.line(W / 2, y + 12, W / 2, y + 48);
+
+                // USD columna derecha
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(8);
+                doc.setTextColor(160, 160, 180);
+                doc.text('USD (Dólares)', W / 2 + 5, y + 16);
+                doc.setFont('helvetica', 'normal');
+                doc.setTextColor(80, 220, 140);
+                doc.text(`Total Ingresos:`, W / 2 + 5, y + 24);
+                doc.text(fmt(mesIngUSD, 'USD'), W / 2 + 45, y + 24);
+                doc.setTextColor(255, 90, 90);
+                doc.text(`Total Gastos:`, W / 2 + 5, y + 31);
+                doc.text(fmt(mesGasUSD, 'USD'), W / 2 + 45, y + 31);
+                doc.setFont('helvetica', 'bold');
+                doc.setTextColor(mesLibUSD >= 0 ? 80 : 255, mesLibUSD >= 0 ? 220 : 90, mesLibUSD >= 0 ? 140 : 90);
+                doc.text(`Saldo libre:`, W / 2 + 5, y + 39);
+                doc.text((mesLibUSD < 0 ? '-' : '') + fmt(mesLibUSD, 'USD'), W / 2 + 45, y + 39);
+
+                y += 58;
+
+                // Caja histórico (compacta)
+                doc.setFillColor(18, 18, 26);
+                doc.roundedRect(margin, y, W - margin * 2, 20, 3, 3, 'F');
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(7.5);
+                doc.setTextColor(100, 100, 130);
+                doc.text('HISTÓRICO TOTAL:', margin + 5, y + 7);
+                doc.setFont('helvetica', 'normal');
+                doc.setTextColor(80, 200, 120);
+                doc.text(`Ing. COP: $${totalIngCOP.toLocaleString('es-CO')}`, margin + 38, y + 7);
+                doc.setTextColor(255, 90, 90);
+                doc.text(`Gas. COP: $${totalGasCOP.toLocaleString('es-CO')}`, margin + 38, y + 14);
+                doc.setTextColor(80, 200, 120);
+                doc.text(`Ing. USD: $${totalIngUSD.toLocaleString('en',{minimumFractionDigits:2})}`, W / 2 + 5, y + 7);
+                doc.setTextColor(255, 90, 90);
+                doc.text(`Gas. USD: $${totalGasUSD.toLocaleString('en',{minimumFractionDigits:2})}`, W / 2 + 5, y + 14);
+                y += 26;
 
                 // ── Tabla de movimientos ─────────────────────────
                 const colX   = [margin, margin + 28, margin + 52, margin + 75, margin + 100];
