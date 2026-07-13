@@ -1288,6 +1288,11 @@
                                 <input type="text" id="form-desc" class="input-premium" placeholder="ej. Salario, Almuerzo, Mercado" required>
                             </div>
 
+                            <div class="form-group">
+                                <label>Fecha del Movimiento</label>
+                                <input type="date" id="form-date" class="input-premium" style="color-scheme: dark;">
+                            </div>
+
                             <button type="submit" class="btn-submit-premium" style="margin-top: 0.5rem;">
                                 <i class="fa-solid fa-bolt"></i> Registrar en Ledger
                             </button>
@@ -1418,15 +1423,21 @@
                     </div>
 
                     <div class="crystal-card nav-section" id="section-history">
-                        <div class="section-title" style="display:flex; justify-content:space-between; align-items:center; width:100%;">
-                            <span><i class="fa-solid fa-list-check" style="color: var(--cyan);"></i> Historial de Ledger Reciente</span>
-                            <button onclick="downloadLedgerPDF()" title="Descargar PDF del Ledger"
-                                style="background:linear-gradient(135deg,rgba(0,212,255,0.15),rgba(45,140,255,0.15)); border:1px solid rgba(0,212,255,0.3); border-radius:10px; color:var(--cyan); font-size:0.78rem; font-weight:600; padding:6px 12px; cursor:pointer; display:flex; align-items:center; gap:6px; transition:all 0.2s; font-family:inherit; white-space:nowrap;"
-                                onmouseover="this.style.background='linear-gradient(135deg,rgba(0,212,255,0.25),rgba(45,140,255,0.25))'"
-                                onmouseout="this.style.background='linear-gradient(135deg,rgba(0,212,255,0.15),rgba(45,140,255,0.15))'">
-                                <i class="fa-solid fa-file-pdf"></i> Exportar PDF
-                            </button>
+                        <div class="section-title" style="display:flex; justify-content:space-between; align-items:center; width:100%; flex-wrap:wrap; gap:8px;">
+                            <span><i class="fa-solid fa-list-check" style="color: var(--cyan);"></i> Historial de Ledger</span>
+                            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                                <input type="month" id="ledger-month-filter"
+                                    onchange="renderLedger()"
+                                    style="background:rgba(255,255,255,0.05); border:1px solid rgba(0,212,255,0.25); border-radius:10px; color:var(--text-main); font-size:0.8rem; font-family:inherit; padding:5px 10px; cursor:pointer; color-scheme:dark; outline:none;">
+                                <button onclick="downloadLedgerPDF()" title="Descargar PDF del Ledger"
+                                    style="background:linear-gradient(135deg,rgba(0,212,255,0.15),rgba(45,140,255,0.15)); border:1px solid rgba(0,212,255,0.3); border-radius:10px; color:var(--cyan); font-size:0.78rem; font-weight:600; padding:6px 12px; cursor:pointer; display:flex; align-items:center; gap:6px; transition:all 0.2s; font-family:inherit; white-space:nowrap;"
+                                    onmouseover="this.style.background='linear-gradient(135deg,rgba(0,212,255,0.25),rgba(45,140,255,0.25))'"
+                                    onmouseout="this.style.background='linear-gradient(135deg,rgba(0,212,255,0.15),rgba(45,140,255,0.15))'">
+                                    <i class="fa-solid fa-file-pdf"></i> Exportar PDF
+                                </button>
+                            </div>
                         </div>
+                        <div id="ledger-month-summary" style="display:none; margin:0.6rem 0 0.2rem; padding:8px 12px; background:rgba(0,212,255,0.06); border:1px solid rgba(0,212,255,0.12); border-radius:10px; font-size:0.8rem; color:var(--text-muted); display:flex; gap:16px; flex-wrap:wrap;"></div>
                         <div class="tx-list" id="tx-list-target"></div>
                     </div>
                 </div>
@@ -1501,11 +1512,15 @@
                 doc.text(`Usuario: ${currentUser.nombre} (@${currentUser.username})`, W / 2, 32, { align: 'center' });
                 y = 46;
 
-                // ── Resumen mes actual + histórico ───────────────
+                // ── Resumen mes seleccionado + histórico ────────
                 const ahora = new Date();
-                const mesActual = `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, '0')}`;
+                const filterEl = document.getElementById('ledger-month-filter');
+                const mesActual = (filterEl && filterEl.value) 
+                    ? filterEl.value
+                    : `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, '0')}`;
                 const mesesNombres = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-                const nombreMes = `${mesesNombres[ahora.getMonth()]} ${ahora.getFullYear()}`;
+                const [mesY, mesM] = mesActual.split('-');
+                const nombreMes = `${mesesNombres[parseInt(mesM,10)-1]} ${mesY}`;
 
                 // Normaliza campo fecha: puede ser fecha_registro o fecha
                 const getFecha = m => m.fecha_registro || m.fecha || '';
@@ -1840,6 +1855,14 @@
             updateLayout();
             
             document.querySelector('.bottom-nav').style.display = 'flex';
+
+            const todayStr = new Date().toISOString().split('T')[0];
+            const monthStr = todayStr.substring(0, 7);
+            const formDate = document.getElementById('form-date');
+            if (formDate) formDate.value = todayStr;
+            const ledgerFilter = document.getElementById('ledger-month-filter');
+            if (ledgerFilter) ledgerFilter.value = monthStr;
+
             loadDashboardData();
             initConverter();
         }
@@ -2298,7 +2321,8 @@
                 txContainer.innerHTML = '';
 
                 const movements = data.movimientos || [];
-                
+                window.allMovements = movements;
+
                 movements.sort((a, b) => {
                     const dateA = a.fecha_registro || '';
                     const dateB = b.fecha_registro || '';
@@ -2311,11 +2335,8 @@
                     const amount = parseFloat(tx.monto) || 0;
 
                     if (isIncome) {
-                        if (divisa === 'COP') {
-                            totalCOPIncome += amount;
-                        } else if (divisa === 'USD') {
-                            totalUSDIncome += amount;
-                        }
+                        if (divisa === 'COP') totalCOPIncome += amount;
+                        else if (divisa === 'USD') totalUSDIncome += amount;
                     } else {
                         if (divisa === 'COP') {
                             totalCOPExpense += amount;
@@ -2327,30 +2348,9 @@
                             usdExpenses[category] = (usdExpenses[category] || 0) + amount;
                         }
                     }
-
-                    const iconClass = isIncome ? 'fa-arrow-down-long amt-income' : 'fa-arrow-up-long amt-expense';
-                    const sign = isIncome ? '+' : '-';
-                    const currencySymbol = divisa;
-
-                    txContainer.innerHTML += `
-                        <div class="tx-item">
-                            <div class="tx-details">
-                                <i class="fa-solid ${iconClass}" style="font-size: 1.1rem;"></i>
-                                <div class="tx-meta">
-                                    <h4>${tx.subtipo || 'Movimiento'}</h4>
-                                    <p>${tx.fecha_registro || 'Hoy'}</p>
-                                </div>
-                            </div>
-                            <div style="display: flex; align-items: center; gap: 1rem;">
-                                <span class="tx-amount ${isIncome ? 'amt-income' : 'amt-expense'}">
-                                    ${sign}$${amount.toLocaleString()} ${currencySymbol}
-                                </span>
-                                <button class="btn-delete-tx" onclick="deleteTransaction('${tx.id_movimiento}')" title="Eliminar movimiento">
-                                    <i class="fa-regular fa-trash-can"></i>
-                                </button>
-                            </div>
-                        </div>`;
                 });
+
+                renderLedger();
 
                 const balanceCOP = totalCOPIncome - totalCOPExpense;
                 const balanceUSD = totalUSDIncome - totalUSDExpense;
@@ -2378,11 +2378,72 @@
             }
         }
 
+        function renderLedger() {
+            const movements = window.allMovements || [];
+            const filterEl = document.getElementById('ledger-month-filter');
+            const selectedMonth = filterEl ? filterEl.value : '';
+            const txContainer = document.getElementById('tx-list-target');
+            const summaryEl = document.getElementById('ledger-month-summary');
+            if (!txContainer) return;
+
+            const filtered = selectedMonth
+                ? movements.filter(m => (m.fecha_registro || '').startsWith(selectedMonth))
+                : movements;
+
+            txContainer.innerHTML = '';
+
+            if (filtered.length === 0) {
+                txContainer.innerHTML = `<p style="color:var(--text-muted); text-align:center; padding:1.5rem 0; font-size:0.88rem;">Sin movimientos para este mes.</p>`;
+            } else {
+                filtered.forEach(tx => {
+                    const isIncome = tx.tipo && tx.tipo.toLowerCase() === 'ingreso';
+                    const divisa = (tx.divisa || '').toUpperCase();
+                    const amount = parseFloat(tx.monto) || 0;
+                    const iconClass = isIncome ? 'fa-arrow-down-long amt-income' : 'fa-arrow-up-long amt-expense';
+                    const sign = isIncome ? '+' : '-';
+                    txContainer.innerHTML += `
+                        <div class="tx-item">
+                            <div class="tx-details">
+                                <i class="fa-solid ${iconClass}" style="font-size: 1.1rem;"></i>
+                                <div class="tx-meta">
+                                    <h4>${tx.subtipo || 'Movimiento'}</h4>
+                                    <p>${tx.fecha_registro || 'Hoy'}</p>
+                                </div>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 1rem;">
+                                <span class="tx-amount ${isIncome ? 'amt-income' : 'amt-expense'}">
+                                    ${sign}$${amount.toLocaleString()} ${divisa}
+                                </span>
+                                <button class="btn-delete-tx" onclick="deleteTransaction('${tx.id_movimiento}')" title="Eliminar movimiento">
+                                    <i class="fa-regular fa-trash-can"></i>
+                                </button>
+                            </div>
+                        </div>`;
+                });
+            }
+
+            if (summaryEl && selectedMonth) {
+                const ingCOP = filtered.filter(m => m.tipo === 'ingreso' && (m.divisa||'').toUpperCase() === 'COP').reduce((s,m) => s + (parseFloat(m.monto)||0), 0);
+                const gasCOP = filtered.filter(m => m.tipo === 'gasto'   && (m.divisa||'').toUpperCase() === 'COP').reduce((s,m) => s + (parseFloat(m.monto)||0), 0);
+                const ingUSD = filtered.filter(m => m.tipo === 'ingreso' && (m.divisa||'').toUpperCase() === 'USD').reduce((s,m) => s + (parseFloat(m.monto)||0), 0);
+                const gasUSD = filtered.filter(m => m.tipo === 'gasto'   && (m.divisa||'').toUpperCase() === 'USD').reduce((s,m) => s + (parseFloat(m.monto)||0), 0);
+                summaryEl.style.display = 'flex';
+                summaryEl.innerHTML = `
+                    <span style="color:var(--cyan);">Ing COP: <b>$${ingCOP.toLocaleString()}</b></span>
+                    <span style="color:#FF4B4B;">Gas COP: <b>$${gasCOP.toLocaleString()}</b></span>
+                    <span style="color:var(--cyan);">Libre COP: <b>$${(ingCOP-gasCOP).toLocaleString()}</b></span>
+                    ${ingUSD||gasUSD ? `<span style="color:var(--electric-blue);">Ing USD: <b>$${ingUSD.toFixed(2)}</b></span><span style="color:#FF4B4B;">Gas USD: <b>$${gasUSD.toFixed(2)}</b></span>` : ''}`;
+            } else if (summaryEl) {
+                summaryEl.style.display = 'none';
+            }
+        }
+
         async function saveTransaction(e) {
             e.preventDefault();
             if (!currentUser) return;
             const montoInput = document.getElementById('form-amount');
             const descInput = document.getElementById('form-desc');
+            const dateInput = document.getElementById('form-date');
             const monto = parseFloat(montoInput.value);
             const descripcion = descInput.value;
 
@@ -2393,7 +2454,7 @@
 
             const id_movimiento = 'mov_' + Date.now() + Math.random().toString(36).substr(2, 5);
             const today = new Date();
-            const fecha_registro = today.toISOString().split('T')[0];
+            const fecha_registro = (dateInput && dateInput.value) ? dateInput.value : today.toISOString().split('T')[0];
 
             const payload = {
                 id_movimiento: id_movimiento,
@@ -2418,6 +2479,7 @@
                 if (response.ok) {
                     montoInput.value = '';
                     descInput.value = '';
+                    if (dateInput) dateInput.value = new Date().toISOString().split('T')[0];
                     await loadDashboardData();
                 } else {
                     const errData = await response.json();
