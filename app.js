@@ -193,6 +193,21 @@ app.post(['/movimientos', '/api/movimientos'], checkAuth, (req, res) => {
   });
 });
 
+// Actualizar monto de un movimiento
+app.patch(['/movimientos/:id', '/api/movimientos/:id'], checkAuth, (req, res) => {
+  const id_movimiento = req.params.id;
+  const { monto } = req.body;
+  if (monto === undefined || isNaN(parseFloat(monto)) || parseFloat(monto) <= 0) {
+    return res.status(400).json({ error: 'Monto inválido' });
+  }
+  const query = 'UPDATE Movimientos SET monto = ? WHERE id_movimiento = ? AND user_id = ?';
+  db.run(query, [parseFloat(monto), id_movimiento, req.userId], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    if (this.changes === 0) return res.status(404).json({ error: 'Movimiento no encontrado o no autorizado' });
+    res.json({ message: 'Monto actualizado', monto: parseFloat(monto) });
+  });
+});
+
 // Eliminar un movimiento asociado al usuario activo
 app.delete(['/movimientos/:id', '/api/movimientos/:id'], checkAuth, (req, res) => {
   const id_movimiento = req.params.id;
