@@ -1210,7 +1210,7 @@
                 <div class="crystal-card currency-section-card cop-section">
                     <div class="currency-section-header">
                         <div class="currency-badge cop-badge">COP</div>
-                        <h2 class="currency-section-title">Pesos Colombianos</h2>
+                        <h2 class="currency-section-title" id="cop-card-label">Pesos Colombianos</h2>
                     </div>
                     
                     <div class="currency-main-balance">
@@ -1234,7 +1234,7 @@
                 <div class="crystal-card currency-section-card usd-section">
                     <div class="currency-section-header">
                         <div class="currency-badge usd-badge">USD</div>
-                        <h2 class="currency-section-title">Dólares Americanos</h2>
+                        <h2 class="currency-section-title" id="usd-card-label">Dólares Americanos</h2>
                     </div>
                     
                     <div class="currency-main-balance">
@@ -1427,7 +1427,7 @@
                             <span><i class="fa-solid fa-list-check" style="color: var(--cyan);"></i> Historial de Ledger</span>
                             <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
                                 <input type="month" id="ledger-month-filter"
-                                    onchange="renderLedger()"
+                                    onchange="renderLedger(); updateBalanceCards();"
                                     style="background:rgba(255,255,255,0.05); border:1px solid rgba(0,212,255,0.25); border-radius:10px; color:var(--text-main); font-size:0.8rem; font-family:inherit; padding:5px 10px; cursor:pointer; color-scheme:dark; outline:none;">
                                 <button onclick="replicarMesSiguiente()" title="Copiar gastos fijos al siguiente mes"
                                     style="background:linear-gradient(135deg,rgba(80,220,140,0.12),rgba(0,180,100,0.12)); border:1px solid rgba(80,220,140,0.3); border-radius:10px; color:#50DC8C; font-size:0.78rem; font-weight:600; padding:6px 12px; cursor:pointer; display:flex; align-items:center; gap:6px; transition:all 0.2s; font-family:inherit; white-space:nowrap;"
@@ -2307,6 +2307,68 @@
             });
         }
 
+        function updateBalanceCards() {
+            const movements = window.allMovements || [];
+            const filterEl = document.getElementById('ledger-month-filter');
+            const selectedMonth = filterEl ? filterEl.value : '';
+
+            const source = selectedMonth
+                ? movements.filter(m => (m.fecha_registro || '').startsWith(selectedMonth))
+                : movements;
+
+            let totalCOPIncome = 0, totalCOPExpense = 0;
+            let totalUSDIncome = 0, totalUSDExpense = 0;
+            let copExpenses = {}, usdExpenses = {};
+
+            source.forEach(tx => {
+                const isIncome = (tx.tipo || '').toLowerCase() === 'ingreso';
+                const divisa = (tx.divisa || '').toUpperCase();
+                const amount = parseFloat(tx.monto) || 0;
+                if (isIncome) {
+                    if (divisa === 'COP') totalCOPIncome += amount;
+                    else if (divisa === 'USD') totalUSDIncome += amount;
+                } else {
+                    if (divisa === 'COP') {
+                        totalCOPExpense += amount;
+                        const cat = tx.subtipo ? tx.subtipo.trim() : 'Otros';
+                        copExpenses[cat] = (copExpenses[cat] || 0) + amount;
+                    } else if (divisa === 'USD') {
+                        totalUSDExpense += amount;
+                        const cat = tx.subtipo ? tx.subtipo.trim() : 'Otros';
+                        usdExpenses[cat] = (usdExpenses[cat] || 0) + amount;
+                    }
+                }
+            });
+
+            const balanceCOP = totalCOPIncome - totalCOPExpense;
+            const balanceUSD = totalUSDIncome - totalUSDExpense;
+            window.balanceCOP = balanceCOP;
+            window.balanceUSD = balanceUSD;
+
+            const mesesNombres = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+            let monthLabel = '';
+            if (selectedMonth) {
+                const [y, mo] = selectedMonth.split('-');
+                monthLabel = ` · ${mesesNombres[parseInt(mo,10)-1]} ${y}`;
+            }
+
+            const copCard = document.querySelector('#cop-card-label');
+            if (copCard) copCard.textContent = 'Pesos Colombianos' + monthLabel;
+            const usdCard = document.querySelector('#usd-card-label');
+            if (usdCard) usdCard.textContent = 'Dólares Americanos' + monthLabel;
+
+            document.getElementById('cop-balance').innerText = `$${balanceCOP.toLocaleString()} COP`;
+            document.getElementById('cop-income').innerText = `$${totalCOPIncome.toLocaleString()} COP`;
+            document.getElementById('cop-expenses').innerText = `$${totalCOPExpense.toLocaleString()} COP`;
+
+            document.getElementById('usd-balance').innerText = `$${balanceUSD.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})} USD`;
+            document.getElementById('usd-income').innerText = `$${totalUSDIncome.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})} USD`;
+            document.getElementById('usd-expenses').innerText = `$${totalUSDExpense.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})} USD`;
+
+            updateChartInstance('COP', copExpenses);
+            updateChartInstance('USD', usdExpenses);
+        }
+
         async function loadDashboardData() {
             if (!currentUser) return;
             try {
@@ -2335,45 +2397,8 @@
                     return dateB.localeCompare(dateA) || b.id_movimiento.localeCompare(a.id_movimiento);
                 });
 
-                movements.forEach(tx => {
-                    const isIncome = tx.tipo && tx.tipo.toLowerCase() === 'ingreso';
-                    const divisa = (tx.divisa || '').toUpperCase();
-                    const amount = parseFloat(tx.monto) || 0;
-
-                    if (isIncome) {
-                        if (divisa === 'COP') totalCOPIncome += amount;
-                        else if (divisa === 'USD') totalUSDIncome += amount;
-                    } else {
-                        if (divisa === 'COP') {
-                            totalCOPExpense += amount;
-                            const category = tx.subtipo ? tx.subtipo.trim() : 'Otros';
-                            copExpenses[category] = (copExpenses[category] || 0) + amount;
-                        } else if (divisa === 'USD') {
-                            totalUSDExpense += amount;
-                            const category = tx.subtipo ? tx.subtipo.trim() : 'Otros';
-                            usdExpenses[category] = (usdExpenses[category] || 0) + amount;
-                        }
-                    }
-                });
-
                 renderLedger();
-
-                const balanceCOP = totalCOPIncome - totalCOPExpense;
-                const balanceUSD = totalUSDIncome - totalUSDExpense;
-                
-                window.balanceCOP = balanceCOP;
-                window.balanceUSD = balanceUSD;
-
-                document.getElementById('cop-balance').innerText = `$${balanceCOP.toLocaleString()} COP`;
-                document.getElementById('cop-income').innerText = `$${totalCOPIncome.toLocaleString()} COP`;
-                document.getElementById('cop-expenses').innerText = `$${totalCOPExpense.toLocaleString()} COP`;
-
-                document.getElementById('usd-balance').innerText = `$${balanceUSD.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} USD`;
-                document.getElementById('usd-income').innerText = `$${totalUSDIncome.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} USD`;
-                document.getElementById('usd-expenses').innerText = `$${totalUSDExpense.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} USD`;
-
-                updateChartInstance('COP', copExpenses);
-                updateChartInstance('USD', usdExpenses);
+                updateBalanceCards();
                 updateMonthlyChart(movements);
 
                 updateAISuggestions();
