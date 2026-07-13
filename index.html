@@ -1507,18 +1507,25 @@
                 const mesesNombres = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
                 const nombreMes = `${mesesNombres[ahora.getMonth()]} ${ahora.getFullYear()}`;
 
-                const delMes = movimientos.filter(m => (m.fecha || '').startsWith(mesActual));
-                const mesIngCOP = delMes.filter(m => m.tipo === 'Ingreso' && m.divisa === 'COP').reduce((s, m) => s + m.monto, 0);
-                const mesGasCOP = delMes.filter(m => m.tipo === 'Gasto'   && m.divisa === 'COP').reduce((s, m) => s + m.monto, 0);
+                // Normaliza campo fecha: puede ser fecha_registro o fecha
+                const getFecha = m => m.fecha_registro || m.fecha || '';
+                // Normaliza tipo: puede ser minúscula o capitalizada
+                const getTipo = m => (m.tipo || '').toLowerCase();
+                // Normaliza descripción: puede ser subtipo o descripcion
+                const getDesc = m => m.subtipo || m.descripcion || m.estado || '';
+
+                const delMes = movimientos.filter(m => getFecha(m).startsWith(mesActual));
+                const mesIngCOP = delMes.filter(m => getTipo(m) === 'ingreso' && m.divisa === 'COP').reduce((s, m) => s + m.monto, 0);
+                const mesGasCOP = delMes.filter(m => getTipo(m) === 'gasto'   && m.divisa === 'COP').reduce((s, m) => s + m.monto, 0);
                 const mesLibCOP = mesIngCOP - mesGasCOP;
-                const mesIngUSD = delMes.filter(m => m.tipo === 'Ingreso' && m.divisa === 'USD').reduce((s, m) => s + m.monto, 0);
-                const mesGasUSD = delMes.filter(m => m.tipo === 'Gasto'   && m.divisa === 'USD').reduce((s, m) => s + m.monto, 0);
+                const mesIngUSD = delMes.filter(m => getTipo(m) === 'ingreso' && m.divisa === 'USD').reduce((s, m) => s + m.monto, 0);
+                const mesGasUSD = delMes.filter(m => getTipo(m) === 'gasto'   && m.divisa === 'USD').reduce((s, m) => s + m.monto, 0);
                 const mesLibUSD = mesIngUSD - mesGasUSD;
 
-                const totalIngCOP = movimientos.filter(m => m.tipo === 'Ingreso' && m.divisa === 'COP').reduce((s, m) => s + m.monto, 0);
-                const totalGasCOP = movimientos.filter(m => m.tipo === 'Gasto'   && m.divisa === 'COP').reduce((s, m) => s + m.monto, 0);
-                const totalIngUSD = movimientos.filter(m => m.tipo === 'Ingreso' && m.divisa === 'USD').reduce((s, m) => s + m.monto, 0);
-                const totalGasUSD = movimientos.filter(m => m.tipo === 'Gasto'   && m.divisa === 'USD').reduce((s, m) => s + m.monto, 0);
+                const totalIngCOP = movimientos.filter(m => getTipo(m) === 'ingreso' && m.divisa === 'COP').reduce((s, m) => s + m.monto, 0);
+                const totalGasCOP = movimientos.filter(m => getTipo(m) === 'gasto'   && m.divisa === 'COP').reduce((s, m) => s + m.monto, 0);
+                const totalIngUSD = movimientos.filter(m => getTipo(m) === 'ingreso' && m.divisa === 'USD').reduce((s, m) => s + m.monto, 0);
+                const totalGasUSD = movimientos.filter(m => getTipo(m) === 'gasto'   && m.divisa === 'USD').reduce((s, m) => s + m.monto, 0);
 
                 const fmt = (n, div) => div === 'COP'
                     ? `$${Math.abs(n).toLocaleString('es-CO')}`
@@ -1620,20 +1627,23 @@
                         y = margin;
                         drawTableHeader();
                     }
-                    const isIngreso = m.tipo === 'Ingreso';
+                    const isIngreso = getTipo(m) === 'ingreso';
+                    const tipoLabel = isIngreso ? 'Ingreso' : 'Gasto';
+                    const fechaLabel = getFecha(m).slice(0, 10);
+                    const descLabel = getDesc(m);
                     doc.setFillColor(idx % 2 === 0 ? 18 : 24, idx % 2 === 0 ? 18 : 24, idx % 2 === 0 ? 26 : 32);
                     doc.rect(margin, y, W - margin * 2, 7, 'F');
 
                     doc.setTextColor(180, 180, 200);
-                    doc.text(m.fecha || '', colX[0] + 2, y + 4.5);
+                    doc.text(fechaLabel, colX[0] + 2, y + 4.5);
                     doc.setTextColor(isIngreso ? 80 : 255, isIngreso ? 220 : 90, isIngreso ? 140 : 90);
-                    doc.text(m.tipo, colX[1] + 2, y + 4.5);
+                    doc.text(tipoLabel, colX[1] + 2, y + 4.5);
                     doc.setTextColor(180, 180, 200);
-                    doc.text(m.divisa, colX[2] + 2, y + 4.5);
+                    doc.text(m.divisa || '', colX[2] + 2, y + 4.5);
                     doc.setTextColor(isIngreso ? 80 : 255, isIngreso ? 220 : 90, isIngreso ? 140 : 90);
-                    doc.text('$' + m.monto.toLocaleString('es-CO'), colX[3] + 2, y + 4.5);
+                    doc.text('$' + (m.monto || 0).toLocaleString('es-CO'), colX[3] + 2, y + 4.5);
                     doc.setTextColor(200, 200, 215);
-                    const desc = doc.splitTextToSize(m.descripcion || '', colW[4] - 4);
+                    const desc = doc.splitTextToSize(descLabel, colW[4] - 4);
                     doc.text(desc[0] || '', colX[4] + 2, y + 4.5);
                     y += 7;
                 });
