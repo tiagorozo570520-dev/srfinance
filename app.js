@@ -9,8 +9,11 @@ const PORT = process.env.PORT || 5000;
 app.use(express.json());
 app.use(express.static(path.join(__dirname)));
 
-// PostgreSQL connection pool (uses env vars DATABASE_URL / PG* automatically)
-const pool = new Pool();
+// PostgreSQL connection pool — SSL required in production, disabled in dev
+const poolConfig = process.env.DATABASE_URL
+  ? { connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } }
+  : {};
+const pool = new Pool(poolConfig);
 
 // Helper: run a parameterized query and return rows
 async function query(sql, params) {
